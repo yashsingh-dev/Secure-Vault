@@ -1,0 +1,35 @@
+Authentication:
+1. JWT Implementation (Access & Refresh Tokens)
+2. HttpOnly Cookie Storage (Secure & SameSite Flags)
+3. Password Hashing (Slow Hashing with Argon2 or bcrypt)
+4. Refresh Token Rotation
+5. Hashed Refresh Token Storage (MongoDB)
+6. Breach Detection Logic (Token Family Revocation)
+7. Redis Blacklisting (Access Token Revocation)
+8. Token Versioning (Logout From All Devices)
+9. CSRF Protection (Double Submit Cookie/Custom Header)
+10. Device Fingerprinting (Tracking IP & User-Agent)
+
+
+2FA Authentication:
+1. TOTP Support (Google Authenticator/Authy)
+2. Email/SMS OTP (Nodemailer & Redis TTL)
+3. Secret Key Generation & QR Code
+4. Backup/Recovery Codes
+5. 2FA Setup & Disabling Logic
+
+
+Social Login: 
+1. OAuth 2.0 Protocol
+2. OpenID Connect (OIDC)
+3. Google Strategy Implementation
+4. Profile Mapping & Account Linking (Social to Local DB)
+
+
+Dashboard:
+1. Active Session Manager (View & Revoke Specific Devices)
+2. Security Audit Logs (Failed Login/Activity Tracking)
+3. Role-Based Access Control (RBAC) (Admin/Editor/User Permissions)
+4. "Secret Vault" CRUD (Data protected by Authorization)
+5. Password Reset System (Email Link & Crypto-Token)
+6. Account Verification Flow (Email Link)
