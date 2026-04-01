@@ -1,0 +1,10 @@
+export const CONSTANTS = {
+    AUTH_TOKEN: {
+        ACCESS_TOKEN: '1h',
+        REFRESH_TOKEN: '7d',
+        ACCESS_TOKEN_MS: 1 * 60 * 60 * 1000, // 1 hour
+        REFRESH_TOKEN_MS: 7 * 24 * 60 * 60 * 1000, // 7 days
+        BLACKLIST_TOKEN_MS: 1 * 60 * 60 * 1000 // 1 hour
+    },
+
+};
