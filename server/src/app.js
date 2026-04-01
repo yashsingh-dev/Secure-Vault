@@ -4,7 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
 import dbConnection from './db/connection.js';
-import errorHandler from './middlewares/errorHandler.js';
+import errorHandler from './middlewares/errorHandler.middleware.js';
 import routes from './routes/index.js';
 
 const app = express();

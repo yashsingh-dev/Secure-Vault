@@ -1,3 +1,5 @@
+import response from '../utils/response.utils'
+
 const errorHandler = (err, req, res, next) => {
     let statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
@@ -13,11 +15,7 @@ const errorHandler = (err, req, res, next) => {
 
     console.log(`[${statusCode}] Global Error: ${message}`, err.stack);
 
-    return res.status(statusCode).json({
-        success: false,
-        message: message,
-        payload: err
-    });
+    return response(res, statusCode, message, null, false);
 }
 
 export default errorHandler;

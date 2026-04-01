@@ -1,6 +1,6 @@
 Authentication:
 1. JWT Implementation (Access & Refresh Tokens)
-2. HttpOnly Cookie Storage (Secure & SameSite Flags)
+2. HttpOnly Cookie Storage (Secure & SameSite: None Flags)
 3. Password Hashing (Slow Hashing with Argon2 or bcrypt)
 4. Refresh Token Rotation
 5. Hashed Refresh Token Storage (MongoDB)
