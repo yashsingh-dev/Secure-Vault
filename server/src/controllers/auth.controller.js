@@ -9,6 +9,7 @@ import response from '../utils/response.utils.js';
 import { CONSTANTS } from '../config/constants.js';
 import generateOTP from '../utils/otp.utils.js';
 import sendTokenEmail from '../utils/sendMail.utils.js';
+import secureHash from '../utils/crypto.utils.js';
 
 
 const login = async (req, res, next) => {
@@ -22,19 +23,20 @@ const login = async (req, res, next) => {
         // Find user
         const user = await userModel.findOne({ email }).select('+password');
         if (!user) {
-            throw new ApiError(401, 'Invalid email');
+            throw new ApiError(401, 'Invalid email or password');
         }
 
         // Check Password
         const isMatch = await verifyHash(password, user.password);
         if (!isMatch) {
-            throw new ApiError(401, 'Invalid password');
+            throw new ApiError(401, 'Invalid email or password');
         }
 
         // Generate OTP
         const otp = generateOTP();
         user.otp = otp;
         user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
+        user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
         await user.save();
 
         // Send Email
@@ -75,6 +77,7 @@ const register = async (req, res, next) => {
         const otp = generateOTP();
         new_user.otp = otp;
         new_user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
+        new_user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
         await new_user.save();
 
         // Send Email
@@ -105,10 +108,16 @@ const sendOTP = async (req, res, next) => {
             throw new ApiError(409, 'User not found');
         }
 
+        // Check OTP Cool Down
+        if (user.otpCoolDown > Date.now()) {
+            throw new ApiError(400, 'OTP Cool Down');
+        }
+
         // Generate OTP
         const otp = generateOTP();
         user.otp = otp;
         user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
+        user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
         await user.save();
 
         // Send Email
@@ -127,7 +136,7 @@ const sendOTP = async (req, res, next) => {
 
 const verifyOTP = async (req, res, next) => {
     try {
-        const { email, otp } = req.body;
+        const { email, otp, rememberMe = false } = req.body;
 
         if (!email || !otp) {
             throw new ApiError(400, 'Email, otp are required');
@@ -140,7 +149,7 @@ const verifyOTP = async (req, res, next) => {
         }
 
         // Check OTP
-        if (user.otp !== otp) {
+        if (!user.otp || user.otp.toString() !== otp) {
             throw new ApiError(401, 'Invalid OTP');
         }
 
@@ -157,11 +166,11 @@ const verifyOTP = async (req, res, next) => {
 
         // Generate JWT Token
         const accessToken = await generateAccessToken(user._id);
-        const refreshToken = await generateRefreshToken(user._id);
+        const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
         // Set Cookie
         await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, 'refreshToken', refreshToken, CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
         return response(res, 201, 'OTP Verified successfully', {
@@ -245,25 +254,34 @@ const refreshAccessToken = async (req, res, next) => {
         // Delete old refresh token hash from DB
         await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
 
-        // Get Admin from collection using decoded token id
-        const admin = await adminModel.findById(decoded._id);
+        // Determine rememberMe based on the refresh token's age and expiry
+        const SECONDS_IN_DAY = 24 * 60 * 60;
+        const currentTime = Math.floor(Date.now() / 1000);
+        let rememberMe = false;
 
-        if (!admin) {
-            throw new ApiError(409, 'Admin Not Found');
+        console.log("Current Time", currentTime);
+        console.log("Decoded exp", decoded.exp);
+        console.log("Decoded iat", decoded.iat);
+        console.log("Seconds in a day", SECONDS_IN_DAY);
+
+        if (decoded.exp - currentTime > SECONDS_IN_DAY) {
+            rememberMe = true;
+        } else if (currentTime - decoded.iat > SECONDS_IN_DAY) {
+            rememberMe = true;
+        } else if (decoded.exp - decoded.iat > SECONDS_IN_DAY) {
+            rememberMe = true;
         }
 
         // Generate new access and refresh token
         const newAccessToken = await generateAccessToken(decoded._id);
-        const newRefreshToken = await generateRefreshToken(decoded._id);
+        const newRefreshToken = await generateRefreshToken(decoded._id, rememberMe);
 
         // Set Cookie
-        await setAuthTokens(res, COOKIES.ACCESS_TOKEN, newAccessToken, TOKEN_EXPIRY.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, COOKIES.REFRESH_TOKEN, newRefreshToken, TOKEN_EXPIRY.REFRESH_TOKEN_MS);
+        await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+        await setAuthTokens(res, 'refreshToken', newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
-        return res.status(200).json({
-            success: true,
-            message: 'Token Refreshed'
-        });
+        // Send Response
+        return response(res, 201, 'Token Refreshed');
     }
     catch (error) {
         // Clear Cookie

@@ -1,4 +1,4 @@
-import response from '../utils/response.utils'
+import response from '../utils/response.utils.js'
 
 const errorHandler = (err, req, res, next) => {
     let statusCode = err.statusCode || 500;

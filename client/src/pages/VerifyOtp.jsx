@@ -1,6 +1,10 @@
+//TODO: Solve bug of reset timer on reload page
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HiOutlineArrowLeft, HiOutlineArrowRight } from 'react-icons/hi2';
+import { AuthAPI } from '../api/auth.api';
+import { useToast } from '../context/ToastContext';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
@@ -9,11 +13,22 @@ export default function VerifyOtp() {
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email || '';
+  const rememberMe = location.state?.rememberMe || false;
 
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState('');
   const [timer, setTimer] = useState(RESEND_COOLDOWN);
+  const [isResending, setIsResending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const inputRefs = useRef([]);
+  const toast = useToast();
+
+  // Redirect if accessed directly without state
+  useEffect(() => {
+    if (!location.state || !location.state.email) {
+      navigate('/login', { replace: true });
+    }
+  }, [location, navigate]);
 
   // Countdown timer
   useEffect(() => {
@@ -71,24 +86,41 @@ export default function VerifyOtp() {
     focusInput(Math.min(pasted.length, OTP_LENGTH - 1));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const code = otp.join('');
     if (code.length < OTP_LENGTH) {
       setError('Please enter the full 6-digit code');
       return;
     }
-    // API call will be added later
-    console.log('OTP verified:', code);
-    navigate('/change-password', { state: { email, otp: code } });
+    
+    setIsVerifying(true);
+    try {
+      const response = await AuthAPI.verifyOTP({ email, otp: code, rememberMe });
+      // toast.success('Login Success');
+    } catch (err) {
+      toast.error(err.message || 'Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  const handleResend = () => {
-    setTimer(RESEND_COOLDOWN);
-    setOtp(Array(OTP_LENGTH).fill(''));
-    focusInput(0);
-    // API call will be added later
-    console.log('Resend OTP to:', email);
+  const handleResend = async () => {
+    if (isResending) return;
+
+    setIsResending(true);
+    try {
+      await AuthAPI.sendOTP({ email });
+      toast.success('OTP sent, Please check your email');
+      
+      setTimer(RESEND_COOLDOWN);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      focusInput(0);
+    } catch (err) {
+      toast.error(err.message || 'Failed to resend OTP');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const maskedEmail = email
@@ -101,12 +133,19 @@ export default function VerifyOtp() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const isOtpComplete = otp.every(digit => digit !== '');
+
   return (
     <div className="page-enter">
-      <Link to="/forgot-password" className="back-link">
+      <button 
+        type="button" 
+        onClick={() => navigate(-1)} 
+        className="back-link" 
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
         <HiOutlineArrowLeft />
         Back
-      </Link>
+      </button>
 
       <h1 className="auth-heading">Check your email</h1>
       <p className="auth-subheading">
@@ -139,10 +178,15 @@ export default function VerifyOtp() {
           </p>
         )}
 
-        <button type="submit" className="btn-primary">
+        <button 
+          type="submit" 
+          className="btn-primary" 
+          disabled={isVerifying || !isOtpComplete}
+        >
           <span>
+            {isVerifying && <div className="btn-loader" />}
             Verify code
-            <HiOutlineArrowRight />
+            {!isVerifying && <HiOutlineArrowRight />}
           </span>
         </button>
       </form>
@@ -155,8 +199,14 @@ export default function VerifyOtp() {
         ) : (
           <p className="resend-text">
             Didn't receive the code?{' '}
-            <button type="button" className="resend-btn" onClick={handleResend}>
-              Resend
+            <button 
+              type="button" 
+              className="resend-btn" 
+              onClick={handleResend}
+              disabled={isResending}
+              style={isResending ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+            >
+              {isResending ? 'Resending...' : 'Resend'}
             </button>
           </p>
         )}

@@ -42,12 +42,13 @@ const userModel = mongoose.Schema({
         default: 0
     },
     otp: {
-        type: Number,
-        select: false
+        type: Number
     },
     otpExpiry: {
-        type: Date,
-        select: false
+        type: Date
+    },
+    otpCoolDown: {
+        type: Date
     }
 }, { timestamps: true });
 

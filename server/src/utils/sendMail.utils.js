@@ -1,7 +1,12 @@
 import resend from '../lib/resend.js';
+import { CONSTANTS } from '../config/constants.js';
 
 const sendTokenEmail = async (email, otp) => {
     try {
+        if (CONSTANTS.OTP.TESTING) {
+            console.log('OTP:', otp);
+            return { success: true, data: { otp } };
+        }
         const { data, error } = await resend.emails.send({
             from: 'Secure Vault <' + (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev') + '>',
             to: [email],
@@ -22,7 +27,7 @@ const sendTokenEmail = async (email, otp) => {
                         </span>
                     </div>
                     <p style="color: #999999; font-size: 14px; text-align: center;">
-                        This code is valid for a limited time. Please do not share it with anyone.
+                        This code is valid for a 10 minutes. Please do not share it with anyone.
                     </p>
                     <p style="color: #999999; font-size: 14px; text-align: center;">
                         If you did not request this code, please ignore this email.

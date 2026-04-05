@@ -1,5 +1,10 @@
+//TODO: Add Google Login
+//TODO: Create Terms and Privacy Policy Pages
+
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthAPI } from '../api/auth.api.js';
+import { useToast } from '../context/ToastContext';
 import {
   HiOutlineEnvelope,
   HiOutlineLockClosed,
@@ -17,6 +22,9 @@ export default function Login() {
     termsAccepted: false,
   });
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const toast = useToast();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -28,6 +36,7 @@ export default function Login() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
+
   };
 
   const validate = () => {
@@ -36,21 +45,38 @@ export default function Login() {
     else if (!/\S+@\S+\.\S+/.test(form.email))
       newErrors.email = 'Enter a valid email address';
     if (!form.password) newErrors.password = 'Password is required';
+    if (form.password.length < 6) newErrors.password = 'Password must be at least 6 characters long';
     if (!form.termsAccepted)
       newErrors.termsAccepted = 'You must accept the terms';
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    // API call will be added later
-    console.log('Login submitted:', form);
+    
+    setIsLoading(true);
+    try {
+      const response = await AuthAPI.login({
+        email: form.email,
+        password: form.password,
+      });
+
+      navigate('/verify-otp', { 
+        state: { email: response.payload.email, rememberMe: form.rememberMe } 
+      });
+    } catch (error) {
+      toast.error(error.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const isFormValid = form.email.trim() && form.password.trim() && form.termsAccepted;
 
   return (
     <div className="page-enter">
@@ -159,11 +185,13 @@ export default function Login() {
           </p>
         )}
 
+
         {/* Submit */}
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary" disabled={isLoading || !isFormValid}>
           <span>
+            {isLoading && <div className="btn-loader" />}
             Sign in to your vault
-            <HiOutlineArrowRight />
+            {!isLoading && <HiOutlineArrowRight />}
           </span>
         </button>
       </form>
