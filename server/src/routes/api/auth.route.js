@@ -20,6 +20,11 @@ router.post('/verify-otp',
     Controller.verifyOTP
 );
 
+router.get('/status',
+    authenticate,
+    Controller.checkAuth
+);
+
 // router.get('/logout',
 //     authenticate,
 //     Controller.logout

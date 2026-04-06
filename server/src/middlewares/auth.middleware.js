@@ -29,7 +29,7 @@ export const authenticate = async (req, res, next) => {
         //     throw new ApiError(409, 'User Not Found');
         // }
 
-        // req.user = user_data;
+        req.user = decoded._id;
         next();
     }
     catch (error) {

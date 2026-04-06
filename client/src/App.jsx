@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthLayout from './components/AuthLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -9,6 +11,10 @@ import ChangePassword from './pages/ChangePassword';
 function App() {
   return (
     <Routes>
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Dashboard />} />
+      </Route>
+
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -16,8 +22,8 @@ function App() {
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/change-password" element={<ChangePassword />} />
       </Route>
-      {/* Redirect root to login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Redirect unknown routes to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

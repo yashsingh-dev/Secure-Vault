@@ -5,6 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HiOutlineArrowLeft, HiOutlineArrowRight } from 'react-icons/hi2';
 import { AuthAPI } from '../api/auth.api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
@@ -22,6 +23,7 @@ export default function VerifyOtp() {
   const [isVerifying, setIsVerifying] = useState(false);
   const inputRefs = useRef([]);
   const toast = useToast();
+  const { login } = useAuth();
 
   // Redirect if accessed directly without state
   useEffect(() => {
@@ -97,7 +99,14 @@ export default function VerifyOtp() {
     setIsVerifying(true);
     try {
       const response = await AuthAPI.verifyOTP({ email, otp: code, rememberMe });
-      // toast.success('Login Success');
+      console.log(response);
+      // Update global auth state
+      login(response.payload);
+      
+      toast.success('Login successful');
+      
+      // Navigate to the dashboard or designated secure route
+      navigate('/', { replace: true });
     } catch (err) {
       toast.error(err.message || 'Verification failed');
     } finally {

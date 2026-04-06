@@ -1,7 +1,18 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate } from 'react-router-dom';
 import { HiOutlineShieldCheck, HiOutlineLockClosed, HiOutlineFingerPrint, HiOutlineServerStack } from 'react-icons/hi2';
+import { useAuth } from '../context/AuthContext';
 
 export default function AuthLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#090a0f', color: 'white' }}>Loading...</div>;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="auth-layout">
       {/* ─── Brand Panel (Desktop) ─── */}

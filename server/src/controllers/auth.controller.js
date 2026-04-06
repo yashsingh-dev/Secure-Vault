@@ -162,6 +162,7 @@ const verifyOTP = async (req, res, next) => {
         user.isVerified = true;
         user.otp = null;
         user.otpExpiry = null;
+        user.otpCoolDown = null;
         await user.save();
 
         // Generate JWT Token
@@ -183,6 +184,22 @@ const verifyOTP = async (req, res, next) => {
     }
 }
 
+const checkAuth = async (req, res, next) => {
+    try {
+        if (!req.user) {
+            throw new ApiError(401, 'Unauthorized');
+        }
+
+        // Send Response
+        return response(res, 200, 'Authorized', {
+            id: req.user,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+
 const logout = async (req, res, next) => {
     try {
         const accessToken = req.cookies.accessToken;
@@ -192,7 +209,7 @@ const logout = async (req, res, next) => {
         if (!refreshToken || refreshToken === 'undefined') {
             // Logout is done at the end
             clearTokenCookies(res);
-            return res.status(200).json({ success: true, message: 'Logout successful' });
+            return response(res, 200, 'Logout successful');
         }
 
         // Check if refreshToken is valid.
@@ -200,16 +217,16 @@ const logout = async (req, res, next) => {
         const decoded = jwt.verify(refreshToken, secret_key);
 
         // Check if the user from the token exists
-        const admin = await adminModel.findById(decoded._id);
-        if (!admin) {
-            throw new ApiError(409, 'Admin not found');
+        const user = await userModel.findById(decoded._id);
+        if (!user) {
+            throw new ApiError(409, 'User not found');
         }
 
-        // Create accessToken hash and it in blacklist collection
-        if (accessToken) {
-            const hashAccessToken = secureHash(accessToken);
-            await blacklistTokenModel.create({ token: hashAccessToken });
-        }
+        // Create accessToken hash and store it Redis blacklist
+        // if (accessToken) {
+        //     const hashAccessToken = secureHash(accessToken);
+        //     await blacklistTokenModel.create({ token: hashAccessToken });
+        // }
 
         // Create refreshToken hash delete from refreshToken collection
         const hashRefreshToken = secureHash(refreshToken);
@@ -218,10 +235,8 @@ const logout = async (req, res, next) => {
         // Clear Cookie
         clearTokenCookies(res);
 
-        return res.status(200).json({
-            success: true,
-            message: MESSAGES.LOGOUT_SUCCESS
-        });
+        // Send Response
+        return response(res, 200, 'Logout successful');
     }
     catch (error) {
         // Always clear cookies on any logout error to prevent a bad state
@@ -295,4 +310,4 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, logout, sendOTP, verifyOTP, refreshAccessToken };
+export default { login, register, checkAuth, logout, sendOTP, verifyOTP, refreshAccessToken };

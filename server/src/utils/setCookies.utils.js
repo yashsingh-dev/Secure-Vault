@@ -2,7 +2,7 @@ const commonCookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: 'None',
-    path: '/api'
+    path: '/'
 };
 
 export const setAuthTokens = async function (res, cookieName, token, maxAge) {
