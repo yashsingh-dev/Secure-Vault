@@ -37,5 +37,19 @@ export const AuthAPI = {
             url: '/auth/status',
             method: 'GET',
         });
+    },
+
+    logout: async () => {
+        return request({
+            url: '/auth/logout',
+            method: 'GET',
+        });
+    },
+
+    logoutAll: async () => {
+        return request({
+            url: '/auth/logoutAll',
+            method: 'GET',
+        });
     }
 };

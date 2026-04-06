@@ -274,11 +274,6 @@ const refreshAccessToken = async (req, res, next) => {
         const currentTime = Math.floor(Date.now() / 1000);
         let rememberMe = false;
 
-        console.log("Current Time", currentTime);
-        console.log("Decoded exp", decoded.exp);
-        console.log("Decoded iat", decoded.iat);
-        console.log("Seconds in a day", SECONDS_IN_DAY);
-
         if (decoded.exp - currentTime > SECONDS_IN_DAY) {
             rememberMe = true;
         } else if (currentTime - decoded.iat > SECONDS_IN_DAY) {

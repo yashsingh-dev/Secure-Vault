@@ -22,3 +22,27 @@ export const request = async (config) => {
         throw new Error(errorMessage);
     }
 };
+
+apiClient.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    async (error) => {
+        if (error.response) {
+            const { status, data } = error.response;
+            if (
+                status === 401 &&
+                (data.message === 'Token Expired' ||
+                    data.message === 'Access Token Missing')
+            ) {
+                try {
+                    await request({url: '/auth/token-refresh', method: 'GET'});
+                    return apiClient(error.config);
+                } catch (refreshError) {
+                    return Promise.reject(refreshError);
+                }
+            }
+        }
+        return Promise.reject(error);
+    }
+)
