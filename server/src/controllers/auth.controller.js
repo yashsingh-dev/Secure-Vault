@@ -1,14 +1,10 @@
-import { setAuthTokens, clearToken, clearTokenCookies } from '../utils/setCookies.utils.js'
+import { setAuthTokens, clearTokenCookies } from '../utils/setCookies.utils.js'
 import { generateAccessToken, generateRefreshToken } from '../utils/setJwtToken.utils.js';
-import jwt from 'jsonwebtoken';
-import userModel from '../models/user.model.js';
-import refreshTokenModel from '../models/refreshToken.model.js';
 import ApiError from '../utils/ApiError.js';
 import response from '../utils/response.utils.js';
 import { CONSTANTS } from '../config/constants.js';
-import secureHash from '../utils/crypto.utils.js';
 import authService from '../services/auth.service.js';
-import { emailSchema, googleCodeSchema, loginSchema, otpCodeSchema, otpSchema, registerSchema } from '../lib/schemas.js';
+import { emailSchema, loginSchema, otpSchema, registerSchema } from '../lib/schemas.js';
 
 
 const login = async (req, res, next) => {
@@ -27,13 +23,15 @@ const login = async (req, res, next) => {
 
         const { user, is2FAEnabled } = await authService.login(email, password);
 
-        // Generate JWT Token
-        const accessToken = await generateAccessToken(user._id);
-        const refreshToken = await generateRefreshToken(user._id, rememberMe);
+        if (!is2FAEnabled) {
+            // Generate JWT Token
+            const accessToken = await generateAccessToken(user._id);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
-        // Set Cookie
-        await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            // Set Cookie
+            await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+        }
 
         // Send Response
         return response(res, 200, 'Login successful', {
@@ -85,13 +83,15 @@ const googleAuth = async (req, res, next) => {
 
         const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
 
-        // Generate JWT Token
-        const accessToken = await generateAccessToken(user._id);
-        const refreshToken = await generateRefreshToken(user._id, rememberMe);
+        if (!is2FAEnabled) {
+            // Generate JWT Token
+            const accessToken = await generateAccessToken(user._id);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
-        // Set Cookie
-        await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            // Set Cookie
+            await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+        }
 
         // Send Response
         return response(res, 200, 'Google login successful', {
@@ -114,7 +114,7 @@ const sendOTP = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = emailSchema.safeParse({ email });
+        const { success, error } = emailSchema.safeParse(email);
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -183,50 +183,50 @@ const checkAuth = async (req, res, next) => {
     }
 }
 
-const logout = async (req, res, next) => {
-    try {
-        const accessToken = req.cookies.accessToken;
-        const refreshToken = req.cookies.refreshToken;
+// const logout = async (req, res, next) => {
+//     try {
+//         const accessToken = req.cookies.accessToken;
+//         const refreshToken = req.cookies.refreshToken;
 
-        // Check Refresh Token
-        if (!refreshToken || refreshToken === 'undefined') {
-            // Logout is done at the end
-            clearTokenCookies(res);
-            return response(res, 200, 'Logout successful');
-        }
+//         // Check Refresh Token
+//         if (!refreshToken || refreshToken === 'undefined') {
+//             // Logout is done at the end
+//             clearTokenCookies(res);
+//             return response(res, 200, 'Logout successful');
+//         }
 
-        // Check if refreshToken is valid.
-        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-        const decoded = jwt.verify(refreshToken, secret_key);
+//         // Check if refreshToken is valid.
+//         const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
+//         const decoded = jwt.verify(refreshToken, secret_key);
 
-        // Check if the user from the token exists
-        const user = await userModel.findById(decoded._id);
-        if (!user) {
-            throw new ApiError(409, 'User not found');
-        }
+//         // Check if the user from the token exists
+//         const user = await userModel.findById(decoded._id);
+//         if (!user) {
+//             throw new ApiError(409, 'User not found');
+//         }
 
-        // Create accessToken hash and store it Redis blacklist
-        // if (accessToken) {
-        //     const hashAccessToken = secureHash(accessToken);
-        //     await blacklistTokenModel.create({ token: hashAccessToken });
-        // }
+//         // Create accessToken hash and store it Redis blacklist
+//         // if (accessToken) {
+//         //     const hashAccessToken = secureHash(accessToken);
+//         //     await blacklistTokenModel.create({ token: hashAccessToken });
+//         // }
 
-        // Create refreshToken hash delete from refreshToken collection
-        const hashRefreshToken = secureHash(refreshToken);
-        await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
+//         // Create refreshToken hash delete from refreshToken collection
+//         const hashRefreshToken = secureHash(refreshToken);
+//         await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
 
-        // Clear Cookie
-        clearTokenCookies(res);
+//         // Clear Cookie
+//         clearTokenCookies(res);
 
-        // Send Response
-        return response(res, 200, 'Logout successful');
-    }
-    catch (error) {
-        // Always clear cookies on any logout error to prevent a bad state
-        clearTokenCookies(res);
-        next(error);
-    }
-}
+//         // Send Response
+//         return response(res, 200, 'Logout successful');
+//     }
+//     catch (error) {
+//         // Always clear cookies on any logout error to prevent a bad state
+//         clearTokenCookies(res);
+//         next(error);
+//     }
+// }
 
 const refreshAccessToken = async (req, res, next) => {
     const oldRefreshToken = req.cookies.refreshToken;
@@ -238,11 +238,11 @@ const refreshAccessToken = async (req, res, next) => {
             throw new ApiError(401, 'Refresh Token Missing');
         }
 
-        const { user, rememberMe } = await authService.refreshToken(oldRefreshToken);
+        const { userId, rememberMe } = await authService.refreshToken(oldRefreshToken);
 
         // Generate new access and refresh token
-        const newAccessToken = await generateAccessToken(user._id);
-        const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
+        const newAccessToken = await generateAccessToken(userId);
+        const newRefreshToken = await generateRefreshToken(userId, rememberMe);
 
         // Set Cookie
         await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -263,4 +263,4 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, googleAuth, checkAuth, logout, sendOTP, verifyOTP, refreshAccessToken };
+export default { login, register, googleAuth, checkAuth, sendOTP, verifyOTP, refreshAccessToken };

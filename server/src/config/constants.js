@@ -12,7 +12,7 @@ export const CONSTANTS = {
         TESTING: true,
         LENGTH: 6,
         EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
-        COOL_DOWN_MS: 60 * 1000 // 1 minute
+        COOL_DOWN_MS: 60 * 1000, // 1 minute
+        BLOCK_TIME_MS: 10 * 60 * 1000 // 10 minutes
     }
-
 };

@@ -32,6 +32,10 @@ const userModel = mongoose.Schema({
         type: Date,
         default: null
     },
+    blockExpiresAt: {
+        type: Date,
+        default: null
+    },
     lastLogin: {
         type: Date
     },

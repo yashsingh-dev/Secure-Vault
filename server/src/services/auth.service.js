@@ -7,6 +7,8 @@ import { createHash, verifyHash } from "../utils/bcrypt.utils.js";
 import secureHash from "../utils/crypto.utils.js";
 import generateOTP from "../utils/otp.utils.js";
 import sendOTPEmail from "../utils/sendMail.utils.js";
+import jwt from 'jsonwebtoken';
+import { formatTimeRemaining } from "../lib/time.js";
 
 const login = async (email, password) => {
     try {
@@ -17,15 +19,27 @@ const login = async (email, password) => {
             throw new ApiError(401, 'Invalid email or password');
         }
 
-        // Check Password
-        const isMatch = await verifyHash(password, user.password);
-        if (!isMatch) {
-            throw new ApiError(401, 'Invalid email or password');
+        // Check Account Blocked
+        if (user.isBlocked) {
+            if (user.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+            }
+            user.isBlocked = false;
+            user.blockReason = null;
+            user.blockedAt = null;
+            user.blockExpiresAt = null;
+            await user.save();
         }
 
         // Check if account is associated with Google
         if (user.googleLogin) {
             throw new ApiError(403, 'Account is associated with Google. Please login with Google.');
+        }
+
+        // Check Password
+        const isMatch = await verifyHash(password, user.password);
+        if (!isMatch) {
+            throw new ApiError(401, 'Invalid email or password');
         }
 
         // Check 2FA
@@ -144,6 +158,18 @@ const googleAuth = async (code) => {
             };
         }
 
+        // Check Account Blocked
+        if (user.isBlocked) {
+            if (user.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+            }
+            user.isBlocked = false;
+            user.blockReason = null;
+            user.blockedAt = null;
+            user.blockExpiresAt = null;
+            await user.save();
+        }
+
         if (user.settings.alwaysRequireOtp || !user.isVerified) {
 
             // Generate OTP
@@ -187,6 +213,18 @@ const sendOTP = async (email) => {
             throw new ApiError(409, 'User not found');
         }
 
+        // Check Account Blocked
+        if (user.isBlocked) {
+            if (user.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+            }
+            user.isBlocked = false;
+            user.blockReason = null;
+            user.blockedAt = null;
+            user.blockExpiresAt = null;
+            await user.save();
+        }
+
         // Check OTP Cool Down
         if (user.otpCoolDown > Date.now()) {
             throw new ApiError(400, 'OTP Cool Down');
@@ -228,11 +266,15 @@ const verifyOTP = async (email, otp) => {
         if (!user.otp || user.otp.toString() !== otp) {
             user.otpAttempts += 1;
 
-            // If it was the 5th attempt, clear the OTP
+            // If it was the 5th attempt, clear the OTP and block the user for specific time
             if (user.otpAttempts >= 5) {
                 user.otp = null;
                 user.otpExpiry = null;
                 user.otpCoolDown = null;
+                user.isBlocked = true;
+                user.blockReason = 'Too many failed OTP attempts';
+                user.blockedAt = Date.now();
+                user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
             }
 
             await user.save();
@@ -296,7 +338,7 @@ const refreshToken = async (oldRefreshToken) => {
             rememberMe = true;
         }
 
-        return { user, rememberMe };
+        return { userId: decoded._id, rememberMe };
 
     }
     catch (error) {

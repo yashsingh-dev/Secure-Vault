@@ -72,6 +72,7 @@ export default function Login() {
       });
 
       if (response.payload.is2FAEnabled) {
+        toast.success('Check your email for verification code.');
         navigate('/verify-otp', {
           state: { email: response.payload.email, rememberMe: form.rememberMe }
         });
@@ -93,6 +94,7 @@ export default function Login() {
         const response = await AuthAPI.googleLogin(codeResponse.code);
 
         if (response.payload.is2FAEnabled) {
+          toast.success('Check your email for verification code.');
           navigate('/verify-otp', {
             state: { email: response.payload.email, rememberMe: response.payload.rememberMe }
           });

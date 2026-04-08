@@ -8,7 +8,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 60; // seconds
+const RESEND_COOLDOWN = 10; // seconds
 
 export default function VerifyOtp() {
   const navigate = useNavigate();

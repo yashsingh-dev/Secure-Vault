@@ -29,10 +29,10 @@ router.get('/status',
     Controller.checkAuth
 );
 
-router.get('/logout',
-    authenticate,
-    Controller.logout
-);
+// router.get('/logout',
+//     authenticate,
+//     Controller.logout
+// );
 
 // router.get('/logoutAll',
 //     authenticate,
