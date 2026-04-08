@@ -14,8 +14,7 @@ const userModel = mongoose.Schema({
     password: {
         type: String,
         select: false,
-        minLength: [6, "Password must be atleast 6 character long"],
-        required: true
+        minLength: [6, "Password must be atleast 6 character long"]
     },
     isVerified: {
         type: Boolean,
@@ -34,8 +33,7 @@ const userModel = mongoose.Schema({
         default: null
     },
     lastLogin: {
-        type: Date,
-        default: Date.now
+        type: Date
     },
     tokenVersion: {
         type: Number,
@@ -49,6 +47,20 @@ const userModel = mongoose.Schema({
     },
     otpCoolDown: {
         type: Date
+    },
+    otpAttempts: {
+        type: Number,
+        default: 0
+    },
+    googleLogin: {
+        type: Boolean,
+        default: false
+    },
+    settings: {
+        alwaysRequireOtp: {
+            type: Boolean,
+            default: false
+        }
     }
 }, { timestamps: true });
 

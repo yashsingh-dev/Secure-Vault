@@ -13,7 +13,7 @@ const errorHandler = (err, req, res, next) => {
         message = 'Invalid Token';
     }
 
-    console.log(`[${statusCode}] Global Error: ${message}`, err.stack);
+    console.log(`[${statusCode}] Global Error: ${message}`);
 
     return response(res, statusCode, message, null, false);
 }

@@ -1,0 +1,21 @@
+Using a Time-To-Live (TTL) index is the professional way to handle this. It allows you to have the best of both worlds:
+
+Safety: You keep the token for a few extra seconds/minutes to solve the "double-tab" race condition.
+Cleanliness: MongoDB automatically purges the documents in the background once they are old, so your disk space stays clean without you having to write any "cleanup" code.
+Here is how that "Perfect Strategy" would look:
+The Schema: You add a createdAt field with a TTL index in your refreshToken.model.js.
+
+javascript
+// Example TTL Index
+refreshTokenSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 }); // Auto-delete after 30 days
+The Rotation Logic: When Tab A refreshes:
+
+Instead of deleteOne, you do an update to set isRevoked: true and revokedAt: Date.now().
+The document stays in the DB for now.
+The Grace Period: When Tab B sends the same token 2 seconds later:
+
+You find the token. You see isRevoked: true BUT you also see revokedAt was only 2 seconds ago.
+You allow it!
+The Auto-Cleanup (TTL):
+
+One month later, MongoDB sees that createdAt is old and poof—it deletes the document automatically. You never have to think about it again.

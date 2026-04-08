@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthAPI } from '../api/auth.api.js';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import {
   HiOutlineEnvelope,
   HiOutlineLockClosed,
@@ -12,6 +13,8 @@ import {
   HiOutlineEyeSlash,
   HiOutlineArrowRight,
 } from 'react-icons/hi2';
+import { FcGoogle } from 'react-icons/fc';
+import { useGoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +28,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -58,23 +62,51 @@ export default function Login() {
       setErrors(validationErrors);
       return;
     }
-    
+
     setIsLoading(true);
     try {
       const response = await AuthAPI.login({
         email: form.email,
         password: form.password,
+        rememberMe: form.rememberMe
       });
 
-      navigate('/verify-otp', { 
-        state: { email: response.payload.email, rememberMe: form.rememberMe } 
-      });
+      if (response.payload.is2FAEnabled) {
+        navigate('/verify-otp', {
+          state: { email: response.payload.email, rememberMe: form.rememberMe }
+        });
+      } else {
+        login(response.payload);
+        navigate('/', { replace: true });
+      }
     } catch (error) {
       toast.error(error.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      console.log("Authorization Code:", codeResponse.code);
+      try {
+        const response = await AuthAPI.googleLogin(codeResponse.code);
+
+        if (response.payload.is2FAEnabled) {
+          navigate('/verify-otp', {
+            state: { email: response.payload.email, rememberMe: response.payload.rememberMe }
+          });
+        } else {
+          login(response.payload);
+          navigate('/', { replace: true });
+        }
+      } catch (error) {
+        toast.error('Google login failed. Please try again.');
+      }
+    },
+    flow: 'auth-code',
+    onError: (error) => console.log('Login Failed:', error),
+  });
 
   const isFormValid = form.email.trim() && form.password.trim() && form.termsAccepted;
 
@@ -193,6 +225,19 @@ export default function Login() {
             Sign in to your vault
             {!isLoading && <HiOutlineArrowRight />}
           </span>
+        </button>
+
+        <div className="auth-divider">
+          <span>OR</span>
+        </div>
+
+        <button
+          type="button"
+          className="btn-google"
+          onClick={handleGoogleLogin}
+        >
+          <FcGoogle />
+          <span>Sign in with Google</span>
         </button>
       </form>
     </div>

@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthAPI } from '../api/auth.api.js';
+import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import {
   HiOutlineUser,
   HiOutlineEnvelope,
@@ -8,6 +11,8 @@ import {
   HiOutlineEyeSlash,
   HiOutlineArrowRight,
 } from 'react-icons/hi2';
+import { FcGoogle } from 'react-icons/fc';
+import { useGoogleLogin } from '@react-oauth/google';
 
 function getPasswordStrength(password) {
   if (!password) return { level: 0, label: '', className: '' };
@@ -35,6 +40,10 @@ export default function Register() {
     termsAccepted: false,
   });
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { login } = useAuth();
 
   const strength = useMemo(
     () => getPasswordStrength(form.password),
@@ -61,6 +70,8 @@ export default function Register() {
     if (!form.password) newErrors.password = 'Password is required';
     else if (form.password.length < 8)
       newErrors.password = 'Password must be at least 8 characters';
+    else if (strength.level <= 1)
+      newErrors.password = 'Password is too weak. Try adding symbols or numbers.';
     if (!form.confirmPassword)
       newErrors.confirmPassword = 'Please confirm your password';
     else if (form.password !== form.confirmPassword)
@@ -70,15 +81,65 @@ export default function Register() {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    console.log('Register submitted:', form);
+    
+    setIsLoading(true);
+    try {
+      const response = await AuthAPI.register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      });
+
+      toast.success('Check your email for verification code.');
+      
+      // Redirect to OTP verification
+      navigate('/verify-otp', { 
+        state: { email: response.payload.email } 
+      });
+    } catch (error) {
+      toast.error(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      console.log("Authorization Code:", codeResponse.code);
+      try {
+        const response = await AuthAPI.googleLogin(codeResponse.code);
+
+        if (response.payload.is2FAEnabled) {
+          navigate('/verify-otp', {
+            state: { email: response.payload.email, rememberMe: false }
+          });
+        } else {
+          login(response.payload);
+          navigate('/', { replace: true });
+        }
+      } catch (error) {
+        toast.error('Google login failed. Please try again.');
+      }
+    },
+    flow: 'auth-code',
+    onError: (error) => console.log('Login Failed:', error),
+  });
+
+  const isFormValid = 
+    form.name.trim() && 
+    form.email.trim() && 
+    /\S+@\S+\.\S+/.test(form.email) && 
+    form.password.length >= 8 && 
+    form.password === form.confirmPassword && 
+    strength.level > 1 && 
+    form.termsAccepted;
 
   return (
     <div className="page-enter">
@@ -239,11 +300,25 @@ export default function Register() {
         )}
 
         {/* Submit */}
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary" disabled={isLoading || !isFormValid}>
           <span>
-            Create your vault
-            <HiOutlineArrowRight />
+            {isLoading && <div className="btn-loader" />}
+            {isLoading ? 'Creating your vault...' : 'Create your vault'}
+            {!isLoading && <HiOutlineArrowRight />}
           </span>
+        </button>
+
+        <div className="auth-divider">
+          <span>OR</span>
+        </div>
+
+        <button 
+          type="button" 
+          className="btn-google" 
+          onClick={handleGoogleLogin}
+        >
+          <FcGoogle />
+          <span>Sign up with Google</span>
         </button>
       </form>
     </div>

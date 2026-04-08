@@ -9,6 +9,14 @@ export const AuthAPI = {
         });
     },
 
+    googleLogin: async (code) => {
+        return request({
+            url: '/auth/google',
+            method: 'POST',
+            data: { code },
+        });
+    },
+
     register: async (userData) => {
         return request({
             url: '/auth/register',

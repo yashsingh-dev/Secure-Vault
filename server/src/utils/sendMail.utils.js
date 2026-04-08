@@ -1,7 +1,7 @@
 import resend from '../lib/resend.js';
 import { CONSTANTS } from '../config/constants.js';
 
-const sendTokenEmail = async (email, otp) => {
+const sendOTPEmail = async (email, otp) => {
     try {
         if (CONSTANTS.OTP.TESTING) {
             console.log('OTP:', otp);
@@ -54,4 +54,4 @@ const sendTokenEmail = async (email, otp) => {
     }
 }
 
-export default sendTokenEmail;
+export default sendOTPEmail;

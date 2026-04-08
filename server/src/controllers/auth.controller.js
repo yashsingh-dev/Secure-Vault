@@ -1,5 +1,4 @@
 import { setAuthTokens, clearToken, clearTokenCookies } from '../utils/setCookies.utils.js'
-import { verifyHash, createHash } from '../utils/bcrypt.utils.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/setJwtToken.utils.js';
 import jwt from 'jsonwebtoken';
 import userModel from '../models/user.model.js';
@@ -7,45 +6,40 @@ import refreshTokenModel from '../models/refreshToken.model.js';
 import ApiError from '../utils/ApiError.js';
 import response from '../utils/response.utils.js';
 import { CONSTANTS } from '../config/constants.js';
-import generateOTP from '../utils/otp.utils.js';
-import sendTokenEmail from '../utils/sendMail.utils.js';
 import secureHash from '../utils/crypto.utils.js';
+import authService from '../services/auth.service.js';
+import { emailSchema, googleCodeSchema, loginSchema, otpCodeSchema, otpSchema, registerSchema } from '../lib/schemas.js';
 
 
 const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, rememberMe = false } = req.body;
 
         if (!email || !password) {
-            throw new ApiError(400, 'Email, password are required');
+            throw new ApiError(400, 'Email and password are required');
         }
 
-        // Find user
-        const user = await userModel.findOne({ email }).select('+password');
-        if (!user) {
-            throw new ApiError(401, 'Invalid email or password');
+        // Validate Input
+        const { success, error } = loginSchema.safeParse(req.body);
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
         }
 
-        // Check Password
-        const isMatch = await verifyHash(password, user.password);
-        if (!isMatch) {
-            throw new ApiError(401, 'Invalid email or password');
-        }
+        const { user, is2FAEnabled } = await authService.login(email, password);
 
-        // Generate OTP
-        const otp = generateOTP();
-        user.otp = otp;
-        user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-        user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-        await user.save();
+        // Generate JWT Token
+        const accessToken = await generateAccessToken(user._id);
+        const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
-        // Send Email
-        await sendTokenEmail(user.email, otp);
+        // Set Cookie
+        await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
         return response(res, 200, 'Login successful', {
             id: user._id,
-            email: user.email
+            email: user.email,
+            is2FAEnabled
         });
     }
     catch (error) {
@@ -61,32 +55,49 @@ const register = async (req, res, next) => {
             throw new ApiError(400, 'Name, email, password are required');
         }
 
-        // Check User
-        const user = await userModel.findOne({ email });
-        if (user) {
-            throw new ApiError(409, 'User already exists');
+        // Validate Input
+        const { success, error } = registerSchema.safeParse(req.body);
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
         }
 
-        // Encyrpt Password
-        const hash_password = await createHash(password);
-
-        // Add User
-        const new_user = await userModel.create({ name, email, password: hash_password });
-
-        // Generate OTP
-        const otp = generateOTP();
-        new_user.otp = otp;
-        new_user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-        new_user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-        await new_user.save();
-
-        // Send Email
-        await sendTokenEmail(new_user.email, otp);
+        const { user } = await authService.register(name, email, password);
 
         // Send Response
         return response(res, 201, 'Registered successfully', {
-            id: new_user._id,
-            email: new_user.email
+            id: user._id,
+            email: user.email,
+            is2FAEnabled: true
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+
+const googleAuth = async (req, res, next) => {
+    try {
+        const { code } = req.body;
+
+        if (!code) {
+            throw new ApiError(400, 'Code is required');
+        }
+
+        const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
+
+        // Generate JWT Token
+        const accessToken = await generateAccessToken(user._id);
+        const refreshToken = await generateRefreshToken(user._id, rememberMe);
+
+        // Set Cookie
+        await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+
+        // Send Response
+        return response(res, 200, 'Google login successful', {
+            id: user._id,
+            email: user.email,
+            is2FAEnabled
         });
     }
     catch (error) {
@@ -102,26 +113,13 @@ const sendOTP = async (req, res, next) => {
             throw new ApiError(400, 'Email is required');
         }
 
-        // Check User
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            throw new ApiError(409, 'User not found');
+        // Validate Input
+        const { success, error } = emailSchema.safeParse({ email });
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
         }
 
-        // Check OTP Cool Down
-        if (user.otpCoolDown > Date.now()) {
-            throw new ApiError(400, 'OTP Cool Down');
-        }
-
-        // Generate OTP
-        const otp = generateOTP();
-        user.otp = otp;
-        user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-        user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-        await user.save();
-
-        // Send Email
-        await sendTokenEmail(user.email, otp);
+        const { user } = await authService.sendOTP(email);
 
         // Send Response
         return response(res, 200, 'OTP sent successfully', {
@@ -142,28 +140,13 @@ const verifyOTP = async (req, res, next) => {
             throw new ApiError(400, 'Email, otp are required');
         }
 
-        // Check User
-        const user = await userModel.findOne({ email }).select('+otp +otpExpiry');
-        if (!user) {
-            throw new ApiError(409, 'User not found');
+        // Validate Input
+        const { success, error } = otpSchema.safeParse({ email, otp, rememberMe });
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
         }
 
-        // Check OTP
-        if (!user.otp || user.otp.toString() !== otp) {
-            throw new ApiError(401, 'Invalid OTP');
-        }
-
-        // Check OTP Expiry
-        if (user.otpExpiry < Date.now()) {
-            throw new ApiError(401, 'OTP Expired');
-        }
-
-        // Verify OTP
-        user.isVerified = true;
-        user.otp = null;
-        user.otpExpiry = null;
-        user.otpCoolDown = null;
-        await user.save();
+        const { user } = await authService.verifyOTP(email, otp);
 
         // Generate JWT Token
         const accessToken = await generateAccessToken(user._id);
@@ -251,40 +234,15 @@ const refreshAccessToken = async (req, res, next) => {
 
         // Check if refresh token exists in cookie
         if (!oldRefreshToken || oldRefreshToken === 'undefined') {
-            clearToken(res, COOKIES.REFRESH_TOKEN);
+            clearTokenCookies(res);
             throw new ApiError(401, 'Refresh Token Missing');
         }
 
-        // Create refreshToken hash and check if it exists in DB
-        const hashRefreshToken = secureHash(oldRefreshToken);
-        const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken });
-        if (!tokenDoc) {
-            throw new ApiError(403, 'Invalid Refresh Token');
-        }
-
-        // Verify refresh token and expiry using its secret key
-        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-        const decoded = jwt.verify(oldRefreshToken, secret_key);
-
-        // Delete old refresh token hash from DB
-        await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
-
-        // Determine rememberMe based on the refresh token's age and expiry
-        const SECONDS_IN_DAY = 24 * 60 * 60;
-        const currentTime = Math.floor(Date.now() / 1000);
-        let rememberMe = false;
-
-        if (decoded.exp - currentTime > SECONDS_IN_DAY) {
-            rememberMe = true;
-        } else if (currentTime - decoded.iat > SECONDS_IN_DAY) {
-            rememberMe = true;
-        } else if (decoded.exp - decoded.iat > SECONDS_IN_DAY) {
-            rememberMe = true;
-        }
+        const { user, rememberMe } = await authService.refreshToken(oldRefreshToken);
 
         // Generate new access and refresh token
-        const newAccessToken = await generateAccessToken(decoded._id);
-        const newRefreshToken = await generateRefreshToken(decoded._id, rememberMe);
+        const newAccessToken = await generateAccessToken(user._id);
+        const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
 
         // Set Cookie
         await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -305,4 +263,4 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, checkAuth, logout, sendOTP, verifyOTP, refreshAccessToken };
+export default { login, register, googleAuth, checkAuth, logout, sendOTP, verifyOTP, refreshAccessToken };

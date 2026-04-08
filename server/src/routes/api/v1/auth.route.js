@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
-import { authenticate } from '../../middlewares/auth.middleware.js';
-import Controller from '../../controllers/auth.controller.js';
+import { authenticate } from '../../../middlewares/auth.middleware.js';
+import Controller from '../../../controllers/auth.controller.js';
 
 
 router.post('/login',
@@ -10,6 +10,10 @@ router.post('/login',
 
 router.post('/register',
     Controller.register
+);
+
+router.post('/google',
+    Controller.googleAuth
 );
 
 router.post('/send-otp',
@@ -30,10 +34,10 @@ router.get('/logout',
     Controller.logout
 );
 
-router.get('/logoutAll',
-    authenticate,
-    Controller.logout
-);
+// router.get('/logoutAll',
+//     authenticate,
+//     Controller.logout
+// );
 
 router.get('/token-refresh',
     Controller.refreshAccessToken

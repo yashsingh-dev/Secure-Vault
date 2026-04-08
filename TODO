@@ -2,13 +2,15 @@ Authentication:
 1. JWT Implementation (Access & Refresh Tokens) - Done
 2. HttpOnly Cookie Storage (Secure & SameSite: None Flags) - Done
 3. Password Hashing (Slow Hashing with Argon2 or bcrypt) - Done
-4. Refresh Token Rotation
-5. Hashed Refresh Token Storage (MongoDB)
+4. Refresh Token Rotation - Done
+5. Hashed Refresh Token Storage (MongoDB) - Done
 6. Breach Detection Logic (Token Family Revocation)
 7. Redis Blacklisting (Access Token Revocation)
 8. Token Versioning (Logout From All Devices)
 9. CSRF Protection (Double Submit Cookie/Custom Header)
 10. Device Fingerprinting (Tracking IP & User-Agent)
+11. Implement recaptcha on admin login
+12. Add a toggle in the User Settings: "Always require OTP, even with Social Login
 
 
 2FA Authentication:

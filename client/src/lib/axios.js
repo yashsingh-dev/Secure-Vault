@@ -3,8 +3,8 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export const apiClient = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true, 
+    baseURL: API_BASE_URL + '/v1',
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -16,8 +16,6 @@ export const request = async (config) => {
         const response = await apiClient(config);
         return response.data;
     } catch (error) {
-        console.error(`API Request failed for ${config.url}:`, error);
-        // Throw custom error including server message if present
         const errorMessage = error.response?.data?.message || `HTTP error! status: ${error.response?.status}`;
         throw new Error(errorMessage);
     }
