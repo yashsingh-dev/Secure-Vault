@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
-import { CONSTANTS } from '../config/constants.js';
 
-const RefreshTokenModel = mongoose.Schema({
+const BlacklistTokenModel = mongoose.Schema({
     token: {
         type: String,
         required: true,
@@ -15,8 +14,8 @@ const RefreshTokenModel = mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now,
-        expires: CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000
+        expires: 3600 // 1 hour
     }
 }, { timestamps: true });
 
-export default mongoose.model('refreshToken', RefreshTokenModel);
+export default mongoose.model('blacklistToken', BlacklistTokenModel);

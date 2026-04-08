@@ -593,6 +593,13 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
+.btn-google:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .btn-google:active {
   transform: translateY(0);
 }
@@ -1281,6 +1288,19 @@ body {
   flex-shrink: 0;
 }
 
+.btn-loader.fast {
+  animation: very-fast-spin 0.4s linear infinite;
+}
+
+.btn-google .btn-loader {
+  border: 2px solid rgba(31, 41, 55, 0.1);
+  border-top-color: #1f2937;
+}
+
 @keyframes fast-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes very-fast-spin {
   to { transform: rotate(360deg); }
 }

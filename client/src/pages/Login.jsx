@@ -26,6 +26,7 @@ export default function Login() {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
   const { login } = useAuth();
@@ -87,9 +88,9 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = useGoogleLogin({
+  const googleLogin = useGoogleLogin({
     onSuccess: async (codeResponse) => {
-      console.log("Authorization Code:", codeResponse.code);
+      setIsGoogleLoading(true);
       try {
         const response = await AuthAPI.googleLogin(codeResponse.code);
 
@@ -104,11 +105,20 @@ export default function Login() {
         }
       } catch (error) {
         toast.error('Google login failed. Please try again.');
+        setIsGoogleLoading(false);
       }
     },
     flow: 'auth-code',
-    onError: (error) => console.log('Login Failed:', error),
+    onError: (error) => {
+      console.log('Login Failed:', error);
+      setIsGoogleLoading(false);
+    },
   });
+
+  const handleGoogleLogin = () => {
+    setIsGoogleLoading(true);
+    googleLogin();
+  };
 
   const isFormValid = form.email.trim() && form.password.trim() && form.termsAccepted;
 
@@ -237,9 +247,14 @@ export default function Login() {
           type="button"
           className="btn-google"
           onClick={handleGoogleLogin}
+          disabled={isGoogleLoading || isLoading}
         >
-          <FcGoogle />
-          <span>Sign in with Google</span>
+          {isGoogleLoading ? (
+            <div className="btn-loader fast" />
+          ) : (
+            <FcGoogle />
+          )}
+          <span>{isGoogleLoading ? 'Signing in...' : 'Sign in with Google'}</span>
         </button>
       </form>
     </div>

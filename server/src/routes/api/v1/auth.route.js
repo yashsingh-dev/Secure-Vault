@@ -29,15 +29,15 @@ router.get('/status',
     Controller.checkAuth
 );
 
-// router.get('/logout',
-//     authenticate,
-//     Controller.logout
-// );
+router.get('/logout',
+    authenticate,
+    Controller.logout
+);
 
-// router.get('/logoutAll',
-//     authenticate,
-//     Controller.logout
-// );
+router.get('/logoutAll',
+    authenticate,
+    Controller.logoutAll
+);
 
 router.get('/token-refresh',
     Controller.refreshAccessToken

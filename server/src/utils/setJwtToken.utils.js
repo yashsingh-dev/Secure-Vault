@@ -3,10 +3,10 @@ import { CONSTANTS } from '../config/constants.js'
 import refreshTokenModel from '../models/refreshToken.model.js';
 import secureHash from './crypto.utils.js';
 
-export const generateAccessToken = async function (userId) {
+export const generateAccessToken = async function (userId, tokenVersion) {
     const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
     try {
-        let access_token = jwt.sign({ _id: userId }, secret_key, {
+        let access_token = jwt.sign({ _id: userId, tokenVersion }, secret_key, {
             expiresIn: CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN
         });
 

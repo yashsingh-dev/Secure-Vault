@@ -25,7 +25,7 @@ const login = async (req, res, next) => {
 
         if (!is2FAEnabled) {
             // Generate JWT Token
-            const accessToken = await generateAccessToken(user._id);
+            const accessToken = await generateAccessToken(user._id, user.tokenVersion);
             const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
             // Set Cookie
@@ -85,7 +85,7 @@ const googleAuth = async (req, res, next) => {
 
         if (!is2FAEnabled) {
             // Generate JWT Token
-            const accessToken = await generateAccessToken(user._id);
+            const accessToken = await generateAccessToken(user._id, user.tokenVersion);
             const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
             // Set Cookie
@@ -149,7 +149,7 @@ const verifyOTP = async (req, res, next) => {
         const { user } = await authService.verifyOTP(email, otp);
 
         // Generate JWT Token
-        const accessToken = await generateAccessToken(user._id);
+        const accessToken = await generateAccessToken(user._id, user.tokenVersion);
         const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
         // Set Cookie
@@ -183,50 +183,55 @@ const checkAuth = async (req, res, next) => {
     }
 }
 
-// const logout = async (req, res, next) => {
-//     try {
-//         const accessToken = req.cookies.accessToken;
-//         const refreshToken = req.cookies.refreshToken;
+const logout = async (req, res, next) => {
+    try {
+        const accessToken = req.cookies.accessToken;
+        const refreshToken = req.cookies.refreshToken;
 
-//         // Check Refresh Token
-//         if (!refreshToken || refreshToken === 'undefined') {
-//             // Logout is done at the end
-//             clearTokenCookies(res);
-//             return response(res, 200, 'Logout successful');
-//         }
+        // Check Refresh Token
+        if (!refreshToken || refreshToken === 'undefined') {
+            // Logout is done at the end
+            clearTokenCookies(res);
+            return response(res, 200, 'Logout successful');
+        }
 
-//         // Check if refreshToken is valid.
-//         const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-//         const decoded = jwt.verify(refreshToken, secret_key);
+        await authService.logout(accessToken, refreshToken);
 
-//         // Check if the user from the token exists
-//         const user = await userModel.findById(decoded._id);
-//         if (!user) {
-//             throw new ApiError(409, 'User not found');
-//         }
+        // Clear Cookie
+        clearTokenCookies(res);
 
-//         // Create accessToken hash and store it Redis blacklist
-//         // if (accessToken) {
-//         //     const hashAccessToken = secureHash(accessToken);
-//         //     await blacklistTokenModel.create({ token: hashAccessToken });
-//         // }
+        // Send Response
+        return response(res, 200, 'Logout successful');
+    }
+    catch (error) {
+        // Always clear cookies on any logout error to prevent a bad state
+        clearTokenCookies(res);
+        next(error);
+    }
+}
 
-//         // Create refreshToken hash delete from refreshToken collection
-//         const hashRefreshToken = secureHash(refreshToken);
-//         await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
+const logoutAll = async (req, res, next) => {
+    try {
+        const accessToken = req.cookies.accessToken;
+        const refreshToken = req.cookies.refreshToken;
 
-//         // Clear Cookie
-//         clearTokenCookies(res);
+        // Check Refresh Token
+        if (!refreshToken || refreshToken === 'undefined') {
+            throw new ApiError(400, 'Refresh Token Missing');
+        }
 
-//         // Send Response
-//         return response(res, 200, 'Logout successful');
-//     }
-//     catch (error) {
-//         // Always clear cookies on any logout error to prevent a bad state
-//         clearTokenCookies(res);
-//         next(error);
-//     }
-// }
+        await authService.logoutAll(accessToken, refreshToken);
+
+        // Clear Cookie
+        clearTokenCookies(res);
+
+        // Send Response
+        return response(res, 200, 'Logout successful');
+    }
+    catch (error) {
+        next(error);
+    }
+}
 
 const refreshAccessToken = async (req, res, next) => {
     const oldRefreshToken = req.cookies.refreshToken;
@@ -238,11 +243,11 @@ const refreshAccessToken = async (req, res, next) => {
             throw new ApiError(401, 'Refresh Token Missing');
         }
 
-        const { userId, rememberMe } = await authService.refreshToken(oldRefreshToken);
+        const { user, rememberMe } = await authService.refreshToken(oldRefreshToken);
 
         // Generate new access and refresh token
-        const newAccessToken = await generateAccessToken(userId);
-        const newRefreshToken = await generateRefreshToken(userId, rememberMe);
+        const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
+        const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
 
         // Set Cookie
         await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -263,4 +268,4 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, googleAuth, checkAuth, sendOTP, verifyOTP, refreshAccessToken };
+export default { login, register, googleAuth, logout, logoutAll, checkAuth, sendOTP, verifyOTP, refreshAccessToken };

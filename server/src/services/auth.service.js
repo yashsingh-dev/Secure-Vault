@@ -9,6 +9,7 @@ import generateOTP from "../utils/otp.utils.js";
 import sendOTPEmail from "../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { formatTimeRemaining } from "../lib/time.js";
+import blacklistTokenModel from "../models/blacklistToken.model.js";
 
 const login = async (email, password) => {
     try {
@@ -204,6 +205,73 @@ const googleAuth = async (code) => {
     }
 }
 
+const logout = async (accessToken, refreshToken) => {
+    try {
+
+        // Check if refreshToken is valid.
+        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
+        const decoded = jwt.verify(refreshToken, secret_key);
+
+        // Check if the user from the token exists
+        const user = await userModel.findById(decoded._id);
+        if (!user) {
+            throw new ApiError(409, 'User not found');
+        }
+
+        // Create accessToken hash and store it in blacklist
+        if (accessToken) {
+            const hashAccessToken = secureHash(accessToken);
+            await blacklistTokenModel.create({
+                token: hashAccessToken,
+                userId: user._id 
+            });
+        }
+
+        // Create refreshToken hash delete from refreshToken collection
+        const hashRefreshToken = secureHash(refreshToken);
+        await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken, userId: user._id });
+
+    }
+    catch (error) {
+        throw error;
+    }
+}
+
+const logoutAll = async (accessToken, refreshToken) => {
+    try {
+
+        // Check if refreshToken is valid.
+        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
+        const decoded = jwt.verify(refreshToken, secret_key);
+
+        // Check if the user from the token exists
+        const user = await userModel.findById(decoded._id);
+        if (!user) {
+            throw new ApiError(409, 'User not found');
+        }
+
+        // Create accessToken hash and store it in blacklist
+        if (accessToken) {
+            const hashAccessToken = secureHash(accessToken);
+            await blacklistTokenModel.create({
+                token: hashAccessToken,
+                userId: user._id
+            });
+        }
+
+        // Delete all from refreshToken collection
+        await refreshTokenModel.deleteMany({ userId: user._id });
+
+        // Increment tokenVersion of user
+        user.tokenVersion += 1;
+        await user.save();
+
+    }
+    catch (error) {
+        throw error;
+    }
+}
+
 const sendOTP = async (email) => {
     try {
 
@@ -338,7 +406,12 @@ const refreshToken = async (oldRefreshToken) => {
             rememberMe = true;
         }
 
-        return { userId: decoded._id, rememberMe };
+        const user = await userModel.findById(decoded._id);
+        if (!user) {
+            throw new ApiError(409, 'User not found');
+        }
+
+        return { user, rememberMe };
 
     }
     catch (error) {
@@ -346,4 +419,4 @@ const refreshToken = async (oldRefreshToken) => {
     }
 }
 
-export default { login, register, googleAuth, sendOTP, verifyOTP, refreshToken };
+export default { login, register, googleAuth, logout, logoutAll, sendOTP, verifyOTP, refreshToken };
