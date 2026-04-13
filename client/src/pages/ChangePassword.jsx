@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   HiOutlineLockClosed,
   HiOutlineEye,
@@ -8,6 +8,8 @@ import {
   HiOutlineArrowRight,
   HiOutlineCheckCircle,
 } from 'react-icons/hi2';
+import { AuthAPI } from '../api/auth.api';
+import { useToast } from '../context/ToastContext';
 
 function getPasswordStrength(password) {
   if (!password) return { level: 0, label: '', className: '' };
@@ -27,12 +29,22 @@ function getPasswordStrength(password) {
 export default function ChangePassword() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { token } = useParams();
   const email = location.state?.email || '';
   const otp = location.state?.otp || '';
+
+  // Security check
+  useEffect(() => {
+    if (!location.state?.email) {
+      navigate('/forgot-password', { replace: true });
+    }
+  }, [location, navigate]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
   const [form, setForm] = useState({
     password: '',
     confirmPassword: '',
@@ -62,16 +74,29 @@ export default function ChangePassword() {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    // API call will be added later
-    console.log('Password changed:', { email, otp, password: form.password });
-    setSuccess(true);
+    
+    setIsLoading(true);
+    try {
+      await AuthAPI.resetPassword({ 
+        email, 
+        password: form.password, 
+        token 
+      });
+      toast.success('Password changed successfully');
+      setSuccess(true);
+      navigate('/login', { replace: true });
+    } catch (err) {
+      toast.error(err.message || 'Failed to reset password');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (success) {
@@ -192,10 +217,11 @@ export default function ChangePassword() {
           )}
         </div>
 
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary" disabled={isLoading}>
           <span>
-            Reset password
-            <HiOutlineArrowRight />
+            {isLoading && <div className="btn-loader" />}
+            {isLoading ? 'Resetting...' : 'Reset password'}
+            {!isLoading && <HiOutlineArrowRight />}
           </span>
         </button>
       </form>

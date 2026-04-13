@@ -102,7 +102,10 @@ export default function Register() {
       
       // Redirect to OTP verification
       navigate('/verify-otp', { 
-        state: { email: response.payload.email } 
+        state: { 
+          email: response.payload.email,
+          purpose: 'register'
+        } 
       });
     } catch (error) {
       toast.error(error.message || 'Registration failed. Please try again.');
@@ -119,7 +122,11 @@ export default function Register() {
 
         if (response.payload.is2FAEnabled) {
           navigate('/verify-otp', {
-            state: { email: response.payload.email, rememberMe: false }
+            state: { 
+              email: response.payload.email, 
+              rememberMe: false,
+              purpose: 'register'
+            }
           });
         } else {
           login(response.payload);

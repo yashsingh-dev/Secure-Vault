@@ -5,8 +5,8 @@ Authentication:
 4. Refresh Token Rotation - ✅
 5. Hashed Refresh Token Storage (MongoDB) - ✅
 6. Breach Detection Logic (Token Family Revocation) - ✅
-7. Redis Blacklisting (Access Token Revocation)
-8. Token Versioning (Logout From All Devices)
+7. Blacklisting (Access Token Revocation) - ✅
+8. Token Versioning (Logout From All Devices) - ✅
 9. CSRF Protection (Double Submit Cookie/Custom Header)
 10. Device Fingerprinting (Tracking IP & User-Agent)
 11. Implement recaptcha on admin login

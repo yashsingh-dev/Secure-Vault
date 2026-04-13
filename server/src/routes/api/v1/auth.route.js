@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
 import { authenticate } from '../../../middlewares/auth.middleware.js';
-import Controller from '../../../controllers/auth.controller.js';
+import Controller from '../../../controllers/v1/auth.controller.js';
 
 
 router.post('/login',
@@ -16,11 +16,19 @@ router.post('/google',
     Controller.googleAuth
 );
 
-router.post('/send-otp',
+router.post('/sendOtp',
     Controller.sendOTP
 );
 
-router.post('/verify-otp',
+router.post('/verifyOtpForReset',
+    Controller.verifyOtpForReset
+);
+
+router.post('/resetPassword',
+    Controller.resetPassword
+);
+
+router.post('/verifyOtp',
     Controller.verifyOTP
 );
 
@@ -39,7 +47,7 @@ router.get('/logoutAll',
     Controller.logoutAll
 );
 
-router.get('/token-refresh',
+router.get('/tokenRefresh',
     Controller.refreshAccessToken
 );
 

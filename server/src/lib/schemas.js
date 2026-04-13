@@ -11,6 +11,12 @@ export const loginSchema = z.object({
     rememberMe: rememberMeSchema
 });
 
+export const resetPasswordSchema = z.object({
+    email: emailSchema,
+    password: passwordSchema,
+    token: z.string()
+});
+
 export const registerSchema = z.object({
     name: z.string(),
     email: emailSchema,
@@ -21,4 +27,9 @@ export const otpSchema = z.object({
     email: emailSchema,
     otp: otpCodeSchema,
     rememberMe: rememberMeSchema
+});
+
+export const otpForResetSchema = z.object({
+    email: emailSchema,
+    otp: otpCodeSchema
 });

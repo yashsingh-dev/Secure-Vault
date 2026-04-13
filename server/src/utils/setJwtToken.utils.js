@@ -38,3 +38,18 @@ export const generateRefreshToken = async function (userId, rememberMe = false) 
         throw error;
     }
 }
+
+export const generateResetToken = async function (userId) {
+    const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
+    try {
+        let reset_token = jwt.sign({ _id: userId }, secret_key, {
+            expiresIn: CONSTANTS.AUTH_TOKEN.RESET_TOKEN
+        });
+
+        console.log(`Reset Token generated for ${CONSTANTS.AUTH_TOKEN.RESET_TOKEN}`);
+
+        return reset_token;
+    } catch (error) {
+        throw error;
+    }
+}

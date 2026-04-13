@@ -1,15 +1,15 @@
-import { CONSTANTS } from "../config/constants.js";
-import googleClient from "../config/oauth.js";
-import refreshTokenModel from "../models/refreshToken.model.js";
-import userModel from "../models/user.model.js";
-import ApiError from "../utils/ApiError.js";
-import { createHash, verifyHash } from "../utils/bcrypt.utils.js";
-import secureHash from "../utils/crypto.utils.js";
-import generateOTP from "../utils/otp.utils.js";
-import sendOTPEmail from "../utils/sendMail.utils.js";
+import { CONSTANTS } from "../../config/constants.js";
+import googleClient from "../../config/oauth.js";
+import refreshTokenModel from "../../models/refreshToken.model.js";
+import userModel from "../../models/user.model.js";
+import ApiError from "../../utils/ApiError.js";
+import { createHash, verifyHash } from "../../utils/bcrypt.utils.js";
+import secureHash from "../../utils/crypto.utils.js";
+import generateOTP from "../../utils/otp.utils.js";
+import sendOTPEmail from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
-import { formatTimeRemaining } from "../lib/time.js";
-import blacklistTokenModel from "../models/blacklistToken.model.js";
+import { formatTimeRemaining } from "../../lib/time.js";
+import blacklistTokenModel from "../../models/blacklistToken.model.js";
 
 const login = async (email, password) => {
     try {
@@ -117,13 +117,14 @@ const googleAuth = async (code) => {
     try {
 
         const { tokens } = await googleClient.getToken(code);
-        googleClient.setCredentials(tokens);
 
-        const userResponse = await googleClient.request({
-            url: 'https://www.googleapis.com/oauth2/v3/userinfo',
+        // Local verification: No network request needed!
+        const ticket = await googleClient.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: process.env.GOOGLE_CLIENT_ID,
         });
 
-        const userData = userResponse.data;
+        const userData = await ticket.getPayload();
 
         // Find user or create user
         let user = await userModel.findOne({ email: userData.email });
@@ -223,7 +224,7 @@ const logout = async (accessToken, refreshToken) => {
             const hashAccessToken = secureHash(accessToken);
             await blacklistTokenModel.create({
                 token: hashAccessToken,
-                userId: user._id 
+                userId: user._id
             });
         }
 
@@ -316,6 +317,53 @@ const sendOTP = async (email) => {
     }
 }
 
+const resetPassword = async (email, password, token) => {
+    try {
+
+        // Check User
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            throw new ApiError(409, 'User not found');
+        }
+
+        // Check if Google Auth
+        if (user.googleLogin) {
+            throw new ApiError(403, 'Account is associated with Google. Please login with Google.');
+        }
+
+        // Check Account Blocked
+        if (user.isBlocked) {
+            if (user.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+            }
+            user.isBlocked = false;
+            user.blockReason = null;
+            user.blockedAt = null;
+            user.blockExpiresAt = null;
+            await user.save();
+        }
+
+        // Verify Token
+        const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
+        const decoded = jwt.verify(token, secret_key);
+        if (decoded._id !== user._id.toString()) {
+            throw new ApiError(401, 'Invalid Token');
+        }
+
+        // Encyrpt Password
+        const hash_password = await createHash(password);
+        user.password = hash_password;
+        user.tokenVersion += 1;
+        user.resetToken = null;
+        await user.save();
+
+        return { user };
+    }
+    catch (error) {
+        throw error;
+    }
+}
+
 const verifyOTP = async (email, otp) => {
     try {
 
@@ -361,6 +409,59 @@ const verifyOTP = async (email, otp) => {
         user.otpCoolDown = null;
         user.otpAttempts = 0;
         user.lastLogin = Date.now();
+        await user.save();
+
+        return { user };
+
+    }
+    catch (error) {
+        throw error;
+    }
+}
+
+const verifyOtpForReset = async (email, otp) => {
+    try {
+
+        // Check User
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            throw new ApiError(409, 'User not found');
+        }
+
+        // Check if already blocked
+        if (user.otpAttempts >= 5) {
+            throw new ApiError(403, 'Too many failed attempts. Please request a new OTP.');
+        }
+
+        // Check OTP
+        if (!user.otp || user.otp.toString() !== otp) {
+            user.otpAttempts += 1;
+
+            // If it was the 5th attempt, clear the OTP and block the user for specific time
+            if (user.otpAttempts >= 5) {
+                user.otp = null;
+                user.otpExpiry = null;
+                user.otpCoolDown = null;
+                user.isBlocked = true;
+                user.blockReason = 'Too many failed OTP attempts';
+                user.blockedAt = Date.now();
+                user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
+            }
+
+            await user.save();
+            throw new ApiError(401, 'Invalid OTP');
+        }
+
+        // Check OTP Expiry (Only if code was correct)
+        if (user.otpExpiry < Date.now()) {
+            throw new ApiError(401, 'OTP Expired');
+        }
+
+        // Verify OTP
+        user.otp = null;
+        user.otpExpiry = null;
+        user.otpCoolDown = null;
+        user.otpAttempts = 0;
         await user.save();
 
         return { user };
@@ -419,4 +520,4 @@ const refreshToken = async (oldRefreshToken) => {
     }
 }
 
-export default { login, register, googleAuth, logout, logoutAll, sendOTP, verifyOTP, refreshToken };
+export default { login, register, googleAuth, logout, logoutAll, sendOTP, resetPassword, verifyOTP, verifyOtpForReset, refreshToken };

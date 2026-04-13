@@ -1,10 +1,10 @@
-import { setAuthTokens, clearTokenCookies } from '../utils/setCookies.utils.js'
-import { generateAccessToken, generateRefreshToken } from '../utils/setJwtToken.utils.js';
-import ApiError from '../utils/ApiError.js';
-import response from '../utils/response.utils.js';
-import { CONSTANTS } from '../config/constants.js';
-import authService from '../services/auth.service.js';
-import { emailSchema, loginSchema, otpSchema, registerSchema } from '../lib/schemas.js';
+import { setAuthTokens, clearTokenCookies } from '../../utils/setCookies.utils.js'
+import { generateAccessToken, generateRefreshToken, generateResetToken } from '../../utils/setJwtToken.utils.js';
+import ApiError from '../../utils/ApiError.js';
+import response from '../../utils/response.utils.js';
+import { CONSTANTS } from '../../config/constants.js';
+import authService from '../../services/v1/auth.service.js';
+import { emailSchema, loginSchema, otpSchema, registerSchema, resetPasswordSchema, otpForResetSchema } from '../../lib/schemas.js';
 
 
 const login = async (req, res, next) => {
@@ -105,6 +105,33 @@ const googleAuth = async (req, res, next) => {
     }
 }
 
+const resetPassword = async (req, res, next) => {
+    try {
+        const { email, password, token } = req.body;
+
+        if (!email || !password || !token) {
+            throw new ApiError(400, 'Email, password and token are required');
+        }
+
+        // Validate Input
+        const { success, error } = resetPasswordSchema.safeParse(req.body);
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
+        }
+
+        const { user } = await authService.resetPassword(email, password, token);
+
+        // Send Response
+        return response(res, 200, 'Password reset successfully', {
+            id: user._id,
+            email: user.email
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+
 const sendOTP = async (req, res, next) => {
     try {
         const { email } = req.body;
@@ -157,9 +184,42 @@ const verifyOTP = async (req, res, next) => {
         await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
-        return response(res, 201, 'OTP Verified successfully', {
+        return response(res, 200, 'OTP Verified successfully', {
             id: user._id,
             email: user.email
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+
+const verifyOtpForReset = async (req, res, next) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            throw new ApiError(400, 'Email, otp are required');
+        }
+
+        // Validate Input
+        const { success, error } = otpForResetSchema.safeParse({ email, otp });
+        if (!success) {
+            throw new ApiError(400, error.errors[0].message);
+        }
+
+        const { user } = await authService.verifyOtpForReset(email, otp);
+
+        // Generate Reset Token
+        const token = await generateResetToken(user._id);
+        user.resetToken = token;
+        user.save();
+
+        // Send Response
+        return response(res, 200, 'OTP Verified successfully', {
+            id: user._id,
+            email: user.email,
+            token
         });
     }
     catch (error) {
@@ -268,4 +328,4 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, googleAuth, logout, logoutAll, checkAuth, sendOTP, verifyOTP, refreshAccessToken };
+export default { login, register, googleAuth, logout, logoutAll, checkAuth, sendOTP, verifyOtpForReset, resetPassword, verifyOTP, refreshAccessToken };

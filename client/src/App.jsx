@@ -20,7 +20,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
-        <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/change-password/:token" element={<ChangePassword />} />
       </Route>
       {/* Redirect unknown routes to home */}
       <Route path="*" element={<Navigate to="/" replace />} />

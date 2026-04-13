@@ -5,13 +5,17 @@ import {
   HiOutlineArrowLeft,
   HiOutlineArrowRight,
 } from 'react-icons/hi2';
+import { AuthAPI } from '../api/auth.api';
+import { useToast } from '../context/ToastContext';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim()) {
       setError('Email is required');
@@ -21,9 +25,18 @@ export default function ForgotPassword() {
       setError('Enter a valid email address');
       return;
     }
-    // API call will be added later
-    console.log('OTP requested for:', email);
-    navigate('/verify-otp', { state: { email } });
+    
+    setIsLoading(true);
+    try {
+      await AuthAPI.sendOTP({ email });
+      toast.success('Check your email for verification code.');
+      navigate('/verify-otp', { state: { email, purpose: 'reset-password' } });
+    } catch (err) {
+      if (err.message === 'OTP Cool Down') toast.error('Please wait for some time to resend OTP');
+      else toast.error(err.message || 'Failed to send verification code');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -62,10 +75,11 @@ export default function ForgotPassword() {
           {error && <p className="form-error">{error}</p>}
         </div>
 
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary" disabled={isLoading}>
           <span>
-            Send verification code
-            <HiOutlineArrowRight />
+            {isLoading && <div className="btn-loader" />}
+            {isLoading ? 'Sending code...' : 'Send verification code'}
+            {!isLoading && <HiOutlineArrowRight />}
           </span>
         </button>
       </form>

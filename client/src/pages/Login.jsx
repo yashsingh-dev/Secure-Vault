@@ -75,7 +75,11 @@ export default function Login() {
       if (response.payload.is2FAEnabled) {
         toast.success('Check your email for verification code.');
         navigate('/verify-otp', {
-          state: { email: response.payload.email, rememberMe: form.rememberMe }
+          state: { 
+            email: response.payload.email, 
+            rememberMe: form.rememberMe,
+            purpose: 'login'
+          }
         });
       } else {
         login(response.payload);
@@ -97,7 +101,11 @@ export default function Login() {
         if (response.payload.is2FAEnabled) {
           toast.success('Check your email for verification code.');
           navigate('/verify-otp', {
-            state: { email: response.payload.email, rememberMe: response.payload.rememberMe }
+            state: { 
+              email: response.payload.email, 
+              rememberMe: response.payload.rememberMe,
+              purpose: 'login'
+            }
           });
         } else {
           login(response.payload);

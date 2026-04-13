@@ -26,7 +26,14 @@ export const AuthAPI = {
     },
     sendOTP: async (data) => {
         return request({
-            url: '/auth/send-otp',
+            url: '/auth/sendOtp',
+            method: 'POST',
+            data: data,
+        });
+    },
+    verifyOtpForReset: async (data) => {
+        return request({
+            url: '/auth/verifyOtpForReset',
             method: 'POST',
             data: data,
         });
@@ -34,7 +41,7 @@ export const AuthAPI = {
 
     verifyOTP: async (data) => {
         return request({
-            url: '/auth/verify-otp',
+            url: '/auth/verifyOtp',
             method: 'POST',
             data: data,
         });
@@ -58,6 +65,14 @@ export const AuthAPI = {
         return request({
             url: '/auth/logoutAll',
             method: 'GET',
+        });
+    },
+
+    resetPassword: async (data) => {
+        return request({
+            url: '/auth/resetPassword',
+            method: 'POST',
+            data: data,
         });
     }
 };

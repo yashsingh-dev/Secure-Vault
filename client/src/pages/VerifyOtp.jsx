@@ -8,13 +8,14 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 10; // seconds
+const RESEND_COOLDOWN = 60; // seconds
 
 export default function VerifyOtp() {
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email || '';
   const rememberMe = location.state?.rememberMe || false;
+  const purpose = location.state?.purpose || '';
 
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState('');
@@ -98,15 +99,17 @@ export default function VerifyOtp() {
     
     setIsVerifying(true);
     try {
-      const response = await AuthAPI.verifyOTP({ email, otp: code, rememberMe });
-      console.log(response);
-      // Update global auth state
-      login(response.payload);
-      
-      toast.success('Login successful');
-      
-      // Navigate to the dashboard or designated secure route
-      navigate('/', { replace: true });
+
+      if (purpose === 'reset-password') {
+        const response = await AuthAPI.verifyOtpForReset({ email, otp: code });
+        toast.success('OTP verified successfully');
+        navigate(`/change-password/${response.payload.token}`, { state: { email, otp: code }, replace: true });
+      } else {
+        const response = await AuthAPI.verifyOTP({ email, otp: code, rememberMe });
+        login(response.payload);
+        toast.success('Login successful');
+        navigate('/', { replace: true });
+      }
     } catch (err) {
       toast.error(err.message || 'Verification failed');
     } finally {
