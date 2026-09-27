@@ -5,7 +5,7 @@ const RefreshTokenModel = mongoose.Schema({
     token: {
         type: String,
         required: true,
-        index: true
+        unique: true
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,

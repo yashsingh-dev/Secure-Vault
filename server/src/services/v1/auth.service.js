@@ -75,7 +75,7 @@ const register = async (name, email, password) => {
     try {
 
         // Check User
-        const user = await userModel.findOne({ email });
+        const user = await userModel.findOne({ email }).select({ _id: 0, email: 1 }).lean();
         if (user) {
             throw new ApiError(409, 'An account with this email already exists. Please sign in instead.');
         }
