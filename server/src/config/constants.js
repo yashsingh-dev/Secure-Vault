@@ -11,7 +11,7 @@ export const CONSTANTS = {
         ACCESS_TOKEN_MS: 1 * 60 * 60 * 1000, // 1 hour
         REFRESH_TOKEN_MS: 1 * 24 * 60 * 60 * 1000, // 1 day
         LONG_REFRESH_TOKEN_MS: 7 * 24 * 60 * 60 * 1000, // 7 days
-        BLACKLIST_TOKEN_MS: 1 * 60 * 60 * 1000 // 1 hour
+        BLACKLIST_TOKEN: 5 * 60 // 5 min
     },
     OTP: {
         TESTING: true,

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { CONSTANTS } from '../config/constants';
 
 const BlacklistTokenModel = mongoose.Schema({
     token: {
@@ -14,7 +15,7 @@ const BlacklistTokenModel = mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now,
-        expires: 3600 // 1 hour
+        expires: CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN
     }
 }, { timestamps: true });
 
