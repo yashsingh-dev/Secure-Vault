@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { CONSTANTS } from "../config/constants.js";
 
 const generateOTP = () => {
@@ -8,8 +9,8 @@ const generateOTP = () => {
     }
 
     const min = Math.pow(10, length - 1);
-    const max = Math.pow(10, length) - 1;
-    return Math.floor(min + Math.random() * (max - min + 1));
-}
+    const max = Math.pow(10, length);
+    return crypto.randomInt(min, max);
+};
 
 export default generateOTP;

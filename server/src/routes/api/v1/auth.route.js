@@ -48,7 +48,7 @@ router.get('/logoutAll',
     Controller.logoutAll
 );
 
-router.get('/tokenRefresh',
+router.get(['/tokenRefresh', '/token-refresh'],
     Controller.refreshAccessToken
 );
 

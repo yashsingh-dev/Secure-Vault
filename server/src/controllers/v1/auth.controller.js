@@ -213,7 +213,7 @@ const verifyOtpForReset = async (req, res, next) => {
         // Generate Reset Token
         const token = await generateResetToken(user._id);
         user.resetToken = token;
-        user.save();
+        await user.save();
 
         // Send Response
         return response(res, 200, 'Verification code verified successfully.', {
@@ -303,15 +303,18 @@ const refreshAccessToken = async (req, res, next) => {
             throw new ApiError(401, 'Session expired or invalid. Please sign in again.');
         }
 
-        const { user, rememberMe } = await authService.refreshToken(oldRefreshToken);
+        const { user, rememberMe, isGracePeriod } = await authService.refreshToken(oldRefreshToken);
 
-        // Generate new access and refresh token
-        const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
-        const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
+        if (!isGracePeriod) {
 
-        // Set Cookie
-        await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, 'refreshToken', newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            // Generate new access and refresh token
+            const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
+            const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
+
+            // Set Cookie
+            await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, 'refreshToken', newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+        }
 
         // Send Response
         return response(res, 201, 'Session renewed successfully.');

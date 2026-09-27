@@ -99,7 +99,9 @@ const register = async (name, email, password) => {
 
         // Send Email
         try {
-            await sendOTPEmail(new_user.email, otp);
+            const result = await sendOTPEmail(new_user.email, otp);
+            if (!result.success) throw new Error(result.error);
+            // throw new Error("Email not sent");
         } catch (error) {
             // Delete user if email fails to prevent deadlock (cleanup)
             await userModel.findByIdAndDelete(new_user._id);
@@ -146,7 +148,8 @@ const googleAuth = async (code) => {
 
             // Send Email
             try {
-                await sendOTPEmail(new_user.email, otp);
+                const result = await sendOTPEmail(new_user.email, otp);
+                if (!result.success) throw new Error(result.error);
             } catch (error) {
                 // Delete user if email fails to prevent deadlock (cleanup)
                 await userModel.findByIdAndDelete(new_user._id);
@@ -183,7 +186,8 @@ const googleAuth = async (code) => {
             await user.save();
 
             // Send Email
-            await sendOTPEmail(user.email, otp);
+            const result = await sendOTPEmail(user.email, otp);
+            if (!result.success) throw new Error(result.error);
 
             return {
                 user: user,
@@ -343,8 +347,13 @@ const resetPassword = async (email, password, token) => {
             await user.save();
         }
 
+        // Check for token
+        if (!user.resetToken || user.resetToken !== token) {
+            throw new ApiError(401, 'Invalid or expired password reset link.');
+        }
+
         // Verify Token
-        const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
+        const secret_key = process.env.JWT_RESET_KEY || 'default-key';
         const decoded = jwt.verify(token, secret_key);
         if (decoded._id !== user._id.toString()) {
             throw new ApiError(401, 'Invalid or expired password reset link.');
@@ -367,34 +376,51 @@ const resetPassword = async (email, password, token) => {
 const verifyOTP = async (email, otp) => {
     try {
 
-        // Check User
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
-        }
+        // ATOMIC CHECK & INCREMENT IN DATABASE:
+        // Only increment if otpAttempts is STRICTLY LESS THAN 5, and account is not blocked!
+        const user = await userModel.findOneAndUpdate(
+            {
+                email,
+                otpAttempts: { $lt: 5 },
+                $or: [{ isBlocked: false }, { blockExpiresAt: { $lt: Date.now() } }]
+            },
+            {
+                $inc: { otpAttempts: 1 }
+            },
+            { new: true }
+        );
 
-        // Check if already blocked
-        if (user.otpAttempts >= 5) {
+        // If no document was matched, it means:
+        // - Either the user doesn't exist, OR
+        // - otpAttempts is ALREADY >= 5!
+        if (!user) {
+            // Find user to check if they are locked out
+            const existingUser = await userModel.findOne({ email });
+            if (!existingUser) {
+                throw new ApiError(409, 'No account found with this email address.');
+            }
+            // They hit 5 attempts or are blocked
             throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
+        }
+        if (!user.otp) {
+            throw new ApiError(401, 'No verification code found. Please request a new one.');
         }
 
         // Check OTP
         if (!user.otp || user.otp.toString() !== otp) {
-            user.otpAttempts += 1;
-
             // If it was the 5th attempt, clear the OTP and block the user for specific time
             if (user.otpAttempts >= 5) {
                 user.otp = null;
                 user.otpExpiry = null;
                 user.otpCoolDown = null;
-                
+
                 user.isBlocked = true;
                 user.blockReason = 'Too many failed OTP attempts';
                 user.blockedAt = Date.now();
                 user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
+                await user.save();
             }
 
-            await user.save();
             throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
@@ -423,21 +449,34 @@ const verifyOTP = async (email, otp) => {
 const verifyOtpForReset = async (email, otp) => {
     try {
 
-        // Check User
-        const user = await userModel.findOne({ email });
+        // ATOMIC CHECK & INCREMENT IN DATABASE:
+        // Only increment if otpAttempts is STRICTLY LESS THAN 5, and account is not blocked!
+        const user = await userModel.findOneAndUpdate(
+            {
+                email,
+                otpAttempts: { $lt: 5 },
+                $or: [{ isBlocked: false }, { blockExpiresAt: { $lt: Date.now() } }]
+            },
+            {
+                $inc: { otpAttempts: 1 }
+            },
+            { new: true }
+        );
+
         if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+            const existingUser = await userModel.findOne({ email });
+            if (!existingUser) {
+                throw new ApiError(409, 'No account found with this email address.');
+            }
+            throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
         }
 
-        // Check if already blocked
-        if (user.otpAttempts >= 5) {
-            throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
+        if (!user.otp) {
+            throw new ApiError(401, 'No verification code found. Please request a new one.');
         }
 
         // Check OTP
         if (!user.otp || user.otp.toString() !== otp) {
-            user.otpAttempts += 1;
-
             // If it was the 5th attempt, clear the OTP and block the user for specific time
             if (user.otpAttempts >= 5) {
                 user.otp = null;
@@ -447,9 +486,9 @@ const verifyOtpForReset = async (email, otp) => {
                 user.blockReason = 'Too many failed OTP attempts';
                 user.blockedAt = Date.now();
                 user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
+                await user.save();
             }
 
-            await user.save();
             throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
@@ -483,37 +522,53 @@ const refreshToken = async (oldRefreshToken) => {
             throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
+        // CHECK GRACE PERIOD: Has this token already been rotated?
+        if (tokenDoc.isRotated) {
+            const GRACE_PERIOD_MS = 20 * 1000; // 20 seconds grace period
+            const timeSinceRotation = Date.now() - new Date(tokenDoc.rotatedAt).getTime();
+            if (timeSinceRotation <= GRACE_PERIOD_MS) {
+                // Allowed! A concurrent request arrived right after rotation.
+                // Fetch the user and return without creating a loop.
+                const user = await userModel.findById(tokenDoc.userId);
+                if (!user) throw new ApiError(409, 'No account found with this email address.');
+
+                return { user, rememberMe: true, isGracePeriod: true };
+            }
+            else {
+                // If used AFTER 20 seconds, this is a REUSE ATTACK (stolen token)!
+                // Security measure: Invalidate all refresh tokens for this user.
+                await refreshTokenModel.deleteMany({ userId: tokenDoc.userId });
+                throw new ApiError(403, 'Compromised token detected. Please sign in again.');
+            }
+
+        }
+
+        // First time rotation: Mark it as rotated instead of deleting immediately!
+        tokenDoc.isRotated = true;
+        tokenDoc.rotatedAt = Date.now();
+        await tokenDoc.save();
+
+        // Optional: Schedule real deletion after 30 seconds
+        setTimeout(async () => {
+            try {
+                await refreshTokenModel.findByIdAndDelete(tokenDoc._id);
+            } catch (e) { }
+        }, 30 * 1000);
+
         // Verify refresh token and expiry using its secret key
         const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
         const decoded = jwt.verify(oldRefreshToken, secret_key);
 
-        // Delete old refresh token hash from DB
-        await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken });
-
         // Determine rememberMe based on the refresh token's age and expiry
         const SECONDS_IN_DAY = 24 * 60 * 60;
-        const currentTime = Math.floor(Date.now() / 1000);
-        let rememberMe = false;
-
-        console.log(currentTime, decoded.exp, decoded.iat);
-        console.log(decoded.exp - currentTime > SECONDS_IN_DAY);
-        console.log(currentTime - decoded.iat > SECONDS_IN_DAY);
-        console.log(decoded.exp - decoded.iat > SECONDS_IN_DAY);
-
-        if (decoded.exp - currentTime > SECONDS_IN_DAY) {
-            rememberMe = true;
-        } else if (currentTime - decoded.iat > SECONDS_IN_DAY) {
-            rememberMe = true;
-        } else if (decoded.exp - decoded.iat > SECONDS_IN_DAY) {
-            rememberMe = true;
-        }
+        let rememberMe = (decoded.exp - decoded.iat > SECONDS_IN_DAY);
 
         const user = await userModel.findById(decoded._id);
         if (!user) {
             throw new ApiError(409, 'No account found with this email address.');
         }
 
-        return { user, rememberMe };
+        return { user, rememberMe, isGracePeriod: false };
 
     }
     catch (error) {

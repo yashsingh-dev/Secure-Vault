@@ -12,6 +12,14 @@ const RefreshTokenModel = mongoose.Schema({
         ref: 'user',
         required: true
     },
+    isRotated: {
+        type: Boolean,
+        default: false
+    },
+    rotatedAt: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now,

@@ -40,7 +40,7 @@ export const generateRefreshToken = async function (userId, rememberMe = false) 
 }
 
 export const generateResetToken = async function (userId) {
-    const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
+    const secret_key = process.env.JWT_RESET_KEY || 'default-key';
     try {
         let reset_token = jwt.sign({ _id: userId }, secret_key, {
             expiresIn: CONSTANTS.AUTH_TOKEN.RESET_TOKEN
