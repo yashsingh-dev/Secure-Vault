@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { CONSTANTS } from "../config/constants.js";
 
 const userModel = mongoose.Schema({
     name: {
@@ -14,7 +15,7 @@ const userModel = mongoose.Schema({
     password: {
         type: String,
         select: false,
-        minLength: [6, "Password must be atleast 6 character long"]
+        minLength: [CONSTANTS.PASSWORD.MIN_LENGTH, `Password must be atleast ${CONSTANTS.PASSWORD.MIN_LENGTH} character long`]
     },
     isVerified: {
         type: Boolean,

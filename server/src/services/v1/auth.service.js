@@ -387,6 +387,7 @@ const verifyOTP = async (email, otp) => {
                 user.otp = null;
                 user.otpExpiry = null;
                 user.otpCoolDown = null;
+                
                 user.isBlocked = true;
                 user.blockReason = 'Too many failed OTP attempts';
                 user.blockedAt = Date.now();

@@ -4,7 +4,7 @@ import ApiError from '../../utils/ApiError.js';
 import response from '../../utils/response.utils.js';
 import { CONSTANTS } from '../../config/constants.js';
 import authService from '../../services/v1/auth.service.js';
-import { emailSchema, loginSchema, otpSchema, registerSchema, resetPasswordSchema, otpForResetSchema } from '../../lib/schemas.js';
+import zod from '../../lib/schemas.js';
 
 
 const login = async (req, res, next) => {
@@ -16,7 +16,7 @@ const login = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = loginSchema.safeParse(req.body);
+        const { success, error } = zod.loginSchema.safeParse(req.body);
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -54,7 +54,7 @@ const register = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = registerSchema.safeParse(req.body);
+        const { success, error } = zod.registerSchema.safeParse(req.body);
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -114,7 +114,7 @@ const resetPassword = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = resetPasswordSchema.safeParse(req.body);
+        const { success, error } = zod.resetPasswordSchema.safeParse(req.body);
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -141,7 +141,7 @@ const sendOTP = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = emailSchema.safeParse(email);
+        const { success, error } = zod.emailSchema.safeParse(email);
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -168,7 +168,7 @@ const verifyOTP = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = otpSchema.safeParse({ email, otp, rememberMe });
+        const { success, error } = zod.otpSchema.safeParse({ email, otp, rememberMe });
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }
@@ -203,7 +203,7 @@ const verifyOtpForReset = async (req, res, next) => {
         }
 
         // Validate Input
-        const { success, error } = otpForResetSchema.safeParse({ email, otp });
+        const { success, error } = zod.otpForResetSchema.safeParse({ email, otp });
         if (!success) {
             throw new ApiError(400, error.errors[0].message);
         }

@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { CONSTANTS } from '../config/constants.js';
 
 export const emailSchema = z.email('Invalid email address');
-export const passwordSchema = z.string().min(6, 'Password must be at least 6 characters long');
+export const passwordSchema = z.string().min(CONSTANTS.PASSWORD.MIN_LENGTH, `Password must be at least ${CONSTANTS.PASSWORD.MIN_LENGTH} characters long`);
 export const rememberMeSchema = z.boolean().optional().default(false);
-export const otpCodeSchema = z.string().length(6, 'Invalid OTP');
+export const otpCodeSchema = z.string().length(CONSTANTS.OTP.LENGTH, `Invalid OTP. Must be ${CONSTANTS.OTP.LENGTH} digits long`);
 
 export const loginSchema = z.object({
     email: emailSchema,
@@ -33,3 +34,17 @@ export const otpForResetSchema = z.object({
     email: emailSchema,
     otp: otpCodeSchema
 });
+
+export const schemas = {
+    emailSchema,
+    passwordSchema,
+    rememberMeSchema,
+    otpCodeSchema,
+    loginSchema,
+    resetPasswordSchema,
+    registerSchema,
+    otpSchema,
+    otpForResetSchema
+};
+
+export default schemas;

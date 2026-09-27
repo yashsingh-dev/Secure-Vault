@@ -1,4 +1,8 @@
 export const CONSTANTS = {
+    NAME: {
+        ACCESS_TOKEN: 'access_token',
+        REFRESH_TOKEN: 'refresh_token'
+    },
     AUTH_TOKEN: {
         ACCESS_TOKEN: '1h',
         REFRESH_TOKEN: '1d',
@@ -12,8 +16,11 @@ export const CONSTANTS = {
     OTP: {
         TESTING: true,
         LENGTH: 6,
-        EXPIRY_MS: 5 * 60 * 1000, // 5 minutes
+        EXPIRY_MS: 15 * 60 * 1000, // 15 minutes
         COOL_DOWN_MS: 60 * 1000, // 1 minute
         BLOCK_TIME_MS: 5 * 60 * 1000 // 5 minutes
+    },
+    PASSWORD: {
+        MIN_LENGTH: 8,
     }
 };
