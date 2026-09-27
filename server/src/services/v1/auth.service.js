@@ -17,13 +17,13 @@ const login = async (email, password) => {
         // Find User
         const user = await userModel.findOne({ email }).select('+password');
         if (!user) {
-            throw new ApiError(401, 'Invalid email or password');
+            throw new ApiError(401, 'Incorrect email or password. Please try again.');
         }
 
         // Check Account Blocked
         if (user.isBlocked) {
             if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
             user.isBlocked = false;
             user.blockReason = null;
@@ -34,13 +34,13 @@ const login = async (email, password) => {
 
         // Check if account is associated with Google
         if (user.googleLogin) {
-            throw new ApiError(403, 'Account is associated with Google. Please login with Google.');
+            throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
         // Check Password
         const isMatch = await verifyHash(password, user.password);
         if (!isMatch) {
-            throw new ApiError(401, 'Invalid email or password');
+            throw new ApiError(401, 'Incorrect email or password. Please try again.');
         }
 
         // Check 2FA
@@ -77,7 +77,7 @@ const register = async (name, email, password) => {
         // Check User
         const user = await userModel.findOne({ email });
         if (user) {
-            throw new ApiError(409, 'User already exists');
+            throw new ApiError(409, 'An account with this email already exists. Please sign in instead.');
         }
 
         // Encyrpt Password
@@ -103,7 +103,7 @@ const register = async (name, email, password) => {
         } catch (error) {
             // Delete user if email fails to prevent deadlock (cleanup)
             await userModel.findByIdAndDelete(new_user._id);
-            throw new ApiError(500, 'Failed to send verification email. Please try again.');
+            throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
         }
 
         return { user: new_user };
@@ -150,7 +150,7 @@ const googleAuth = async (code) => {
             } catch (error) {
                 // Delete user if email fails to prevent deadlock (cleanup)
                 await userModel.findByIdAndDelete(new_user._id);
-                throw new ApiError(500, 'Failed to send verification email. Please try again.');
+                throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
             }
 
             return {
@@ -163,7 +163,7 @@ const googleAuth = async (code) => {
         // Check Account Blocked
         if (user.isBlocked) {
             if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
             user.isBlocked = false;
             user.blockReason = null;
@@ -216,7 +216,7 @@ const logout = async (accessToken, refreshToken) => {
         // Check if the user from the token exists
         const user = await userModel.findById(decoded._id);
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Create accessToken hash and store it in blacklist
@@ -248,7 +248,7 @@ const logoutAll = async (accessToken, refreshToken) => {
         // Check if the user from the token exists
         const user = await userModel.findById(decoded._id);
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Create accessToken hash and store it in blacklist
@@ -279,13 +279,13 @@ const sendOTP = async (email) => {
         // Check User
         const user = await userModel.findOne({ email });
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Check Account Blocked
         if (user.isBlocked) {
             if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
             user.isBlocked = false;
             user.blockReason = null;
@@ -296,7 +296,7 @@ const sendOTP = async (email) => {
 
         // Check OTP Cool Down
         if (user.otpCoolDown > Date.now()) {
-            throw new ApiError(400, 'OTP Cool Down');
+            throw new ApiError(400, 'Please wait before requesting another verification code.');
         }
 
         // Generate OTP
@@ -323,18 +323,18 @@ const resetPassword = async (email, password, token) => {
         // Check User
         const user = await userModel.findOne({ email });
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Check if Google Auth
         if (user.googleLogin) {
-            throw new ApiError(403, 'Account is associated with Google. Please login with Google.');
+            throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
         // Check Account Blocked
         if (user.isBlocked) {
             if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Account is blocked for the next ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}`);
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
             user.isBlocked = false;
             user.blockReason = null;
@@ -347,7 +347,7 @@ const resetPassword = async (email, password, token) => {
         const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
         const decoded = jwt.verify(token, secret_key);
         if (decoded._id !== user._id.toString()) {
-            throw new ApiError(401, 'Invalid Token');
+            throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
         // Encyrpt Password
@@ -370,12 +370,12 @@ const verifyOTP = async (email, otp) => {
         // Check User
         const user = await userModel.findOne({ email });
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Check if already blocked
         if (user.otpAttempts >= 5) {
-            throw new ApiError(403, 'Too many failed attempts. Please request a new OTP.');
+            throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
         }
 
         // Check OTP
@@ -395,12 +395,12 @@ const verifyOTP = async (email, otp) => {
             }
 
             await user.save();
-            throw new ApiError(401, 'Invalid OTP');
+            throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
         // Check OTP Expiry (Only if code was correct)
         if (user.otpExpiry < Date.now()) {
-            throw new ApiError(401, 'OTP Expired');
+            throw new ApiError(401, 'This verification code has expired. Please request a new one.');
         }
 
         // Verify OTP
@@ -426,12 +426,12 @@ const verifyOtpForReset = async (email, otp) => {
         // Check User
         const user = await userModel.findOne({ email });
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         // Check if already blocked
         if (user.otpAttempts >= 5) {
-            throw new ApiError(403, 'Too many failed attempts. Please request a new OTP.');
+            throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
         }
 
         // Check OTP
@@ -450,12 +450,12 @@ const verifyOtpForReset = async (email, otp) => {
             }
 
             await user.save();
-            throw new ApiError(401, 'Invalid OTP');
+            throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
         // Check OTP Expiry (Only if code was correct)
         if (user.otpExpiry < Date.now()) {
-            throw new ApiError(401, 'OTP Expired');
+            throw new ApiError(401, 'This verification code has expired. Please request a new one.');
         }
 
         // Verify OTP
@@ -480,7 +480,7 @@ const refreshToken = async (oldRefreshToken) => {
         const hashRefreshToken = secureHash(oldRefreshToken);
         const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken });
         if (!tokenDoc) {
-            throw new ApiError(403, 'Invalid Refresh Token');
+            throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
         // Verify refresh token and expiry using its secret key
@@ -510,7 +510,7 @@ const refreshToken = async (oldRefreshToken) => {
 
         const user = await userModel.findById(decoded._id);
         if (!user) {
-            throw new ApiError(409, 'User not found');
+            throw new ApiError(409, 'No account found with this email address.');
         }
 
         return { user, rememberMe };

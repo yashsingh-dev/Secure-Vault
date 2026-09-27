@@ -27,10 +27,10 @@ const sendOTPEmail = async (email, otp) => {
                         </span>
                     </div>
                     <p style="color: #999999; font-size: 14px; text-align: center;">
-                        This code is valid for a 10 minutes. Please do not share it with anyone.
+                        This code will expire in ${CONSTANTS.OTP.EXPIRY_MS / (60 * 1000)} minutes. For your security, please do not share it with anyone.
                     </p>
                     <p style="color: #999999; font-size: 14px; text-align: center;">
-                        If you did not request this code, please ignore this email.
+                        If you did not request this code, you can safely ignore this email.
                     </p>
                     <hr style="border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;">
                     <p style="color: #bbbbbb; font-size: 12px; text-align: center;">

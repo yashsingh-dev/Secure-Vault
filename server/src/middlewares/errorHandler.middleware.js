@@ -2,15 +2,15 @@ import response from '../utils/response.utils.js'
 
 const errorHandler = (err, req, res, next) => {
     let statusCode = err.statusCode || 500;
-    let message = err.message || 'Internal Server Error';
+    let message = err.message || 'An unexpected error occurred. Please try again later.';
 
     if (err.name === 'TokenExpiredError') {
         statusCode = 401;
-        message = 'Token Expired';
+        message = 'Your session has expired. Please sign in again.';
     }
     else if (err.name === 'JsonWebTokenError') {
         statusCode = 401;
-        message = 'Invalid Token';
+        message = 'Invalid session token. Please sign in again.';
     }
 
     console.log(`[${statusCode}] Global Error: ${message}`);

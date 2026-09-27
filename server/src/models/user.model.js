@@ -15,7 +15,7 @@ const userModel = mongoose.Schema({
     password: {
         type: String,
         select: false,
-        minLength: [CONSTANTS.PASSWORD.MIN_LENGTH, `Password must be atleast ${CONSTANTS.PASSWORD.MIN_LENGTH} character long`]
+        minLength: [CONSTANTS.PASSWORD.MIN_LENGTH, `Password must be at least ${CONSTANTS.PASSWORD.MIN_LENGTH} characters long.`]
     },
     isVerified: {
         type: Boolean,

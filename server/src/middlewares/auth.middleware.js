@@ -18,7 +18,7 @@ export const authenticate = async (req, res, next) => {
         const hashAccessToken = secureHash(accessToken);
         let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken });
         if (isBlacklisted) {
-            throw new ApiError(403, 'Token Has Been Revoked');
+            throw new ApiError(403, 'Session has been revoked. Please sign in again.');
         }
 
         // Verify JWT Signature and expiry
@@ -29,12 +29,12 @@ export const authenticate = async (req, res, next) => {
         let user_data = await userModel.findById(decoded._id);
         if (!user_data) {
             clearTokenCookies(res);
-            throw new ApiError(409, 'User Not Found');
+            throw new ApiError(409, 'User account no longer exists.');
         }
 
         if (user_data.tokenVersion !== decoded.tokenVersion) {
             clearTokenCookies(res);
-            throw new ApiError(401, 'Token Has Been Revoked');
+            throw new ApiError(401, 'Session has ended. Please sign in again.');
         }
 
         req.user = decoded._id;

@@ -12,13 +12,13 @@ const login = async (req, res, next) => {
         const { email, password, rememberMe = false } = req.body;
 
         if (!email || !password) {
-            throw new ApiError(400, 'Email and password are required');
+            throw new ApiError(400, 'Please provide both your email and password.');
         }
 
         // Validate Input
         const { success, error } = zod.loginSchema.safeParse(req.body);
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user, is2FAEnabled } = await authService.login(email, password);
@@ -34,7 +34,7 @@ const login = async (req, res, next) => {
         }
 
         // Send Response
-        return response(res, 200, 'Login successful', {
+        return response(res, 200, 'Signed in successfully.', {
             id: user._id,
             email: user.email,
             is2FAEnabled
@@ -50,19 +50,19 @@ const register = async (req, res, next) => {
         const { name, email, password } = req.body;
 
         if (!name || !email || !password) {
-            throw new ApiError(400, 'Name, email, password are required');
+            throw new ApiError(400, 'Name, email, and password are required.');
         }
 
         // Validate Input
         const { success, error } = zod.registerSchema.safeParse(req.body);
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user } = await authService.register(name, email, password);
 
         // Send Response
-        return response(res, 201, 'Registered successfully', {
+        return response(res, 201, 'Account registered successfully.', {
             id: user._id,
             email: user.email,
             is2FAEnabled: true
@@ -78,7 +78,7 @@ const googleAuth = async (req, res, next) => {
         const { code } = req.body;
 
         if (!code) {
-            throw new ApiError(400, 'Code is required');
+            throw new ApiError(400, 'Google authorization code is required.');
         }
 
         const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
@@ -94,7 +94,7 @@ const googleAuth = async (req, res, next) => {
         }
 
         // Send Response
-        return response(res, 200, 'Google login successful', {
+        return response(res, 200, 'Successfully signed in with Google.', {
             id: user._id,
             email: user.email,
             is2FAEnabled
@@ -110,19 +110,19 @@ const resetPassword = async (req, res, next) => {
         const { email, password, token } = req.body;
 
         if (!email || !password || !token) {
-            throw new ApiError(400, 'Email, password and token are required');
+            throw new ApiError(400, 'Email, new password, and reset token are required.');
         }
 
         // Validate Input
         const { success, error } = zod.resetPasswordSchema.safeParse(req.body);
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user } = await authService.resetPassword(email, password, token);
 
         // Send Response
-        return response(res, 200, 'Password reset successfully', {
+        return response(res, 200, 'Your password has been reset successfully.', {
             id: user._id,
             email: user.email
         });
@@ -137,19 +137,19 @@ const sendOTP = async (req, res, next) => {
         const { email } = req.body;
 
         if (!email) {
-            throw new ApiError(400, 'Email is required');
+            throw new ApiError(400, 'Please provide your email address.');
         }
 
         // Validate Input
         const { success, error } = zod.emailSchema.safeParse(email);
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user } = await authService.sendOTP(email);
 
         // Send Response
-        return response(res, 200, 'OTP sent successfully', {
+        return response(res, 200, 'Verification code sent to your email.', {
             id: user._id,
             email: user.email
         });
@@ -164,13 +164,13 @@ const verifyOTP = async (req, res, next) => {
         const { email, otp, rememberMe = false } = req.body;
 
         if (!email || !otp) {
-            throw new ApiError(400, 'Email, otp are required');
+            throw new ApiError(400, 'Email and verification code are required.');
         }
 
         // Validate Input
         const { success, error } = zod.otpSchema.safeParse({ email, otp, rememberMe });
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user } = await authService.verifyOTP(email, otp);
@@ -184,7 +184,7 @@ const verifyOTP = async (req, res, next) => {
         await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
-        return response(res, 200, 'OTP Verified successfully', {
+        return response(res, 200, 'Verification code verified successfully.', {
             id: user._id,
             email: user.email
         });
@@ -199,13 +199,13 @@ const verifyOtpForReset = async (req, res, next) => {
         const { email, otp } = req.body;
 
         if (!email || !otp) {
-            throw new ApiError(400, 'Email, otp are required');
+            throw new ApiError(400, 'Email and verification code are required.');
         }
 
         // Validate Input
         const { success, error } = zod.otpForResetSchema.safeParse({ email, otp });
         if (!success) {
-            throw new ApiError(400, error.errors[0].message);
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
         const { user } = await authService.verifyOtpForReset(email, otp);
@@ -216,7 +216,7 @@ const verifyOtpForReset = async (req, res, next) => {
         user.save();
 
         // Send Response
-        return response(res, 200, 'OTP Verified successfully', {
+        return response(res, 200, 'Verification code verified successfully.', {
             id: user._id,
             email: user.email,
             token
@@ -230,11 +230,11 @@ const verifyOtpForReset = async (req, res, next) => {
 const checkAuth = async (req, res, next) => {
     try {
         if (!req.user) {
-            throw new ApiError(401, 'Unauthorized');
+            throw new ApiError(401, 'Unauthorized access. Please sign in to continue.');
         }
 
         // Send Response
-        return response(res, 200, 'Authorized', {
+        return response(res, 200, 'Session authenticated.', {
             id: req.user,
         });
     }
@@ -252,7 +252,7 @@ const logout = async (req, res, next) => {
         if (!refreshToken || refreshToken === 'undefined') {
             // Logout is done at the end
             clearTokenCookies(res);
-            return response(res, 200, 'Logout successful');
+            return response(res, 200, 'Signed out successfully.');
         }
 
         await authService.logout(accessToken, refreshToken);
@@ -261,7 +261,7 @@ const logout = async (req, res, next) => {
         clearTokenCookies(res);
 
         // Send Response
-        return response(res, 200, 'Logout successful');
+        return response(res, 200, 'Signed out successfully.');
     }
     catch (error) {
         // Always clear cookies on any logout error to prevent a bad state
@@ -277,7 +277,7 @@ const logoutAll = async (req, res, next) => {
 
         // Check Refresh Token
         if (!refreshToken || refreshToken === 'undefined') {
-            throw new ApiError(400, 'Refresh Token Missing');
+            throw new ApiError(400, 'Session expired or invalid. Please sign in again.');
         }
 
         await authService.logoutAll(accessToken, refreshToken);
@@ -286,7 +286,7 @@ const logoutAll = async (req, res, next) => {
         clearTokenCookies(res);
 
         // Send Response
-        return response(res, 200, 'Logout successful');
+        return response(res, 200, 'Signed out from all devices successfully.');
     }
     catch (error) {
         next(error);
@@ -300,7 +300,7 @@ const refreshAccessToken = async (req, res, next) => {
         // Check if refresh token exists in cookie
         if (!oldRefreshToken || oldRefreshToken === 'undefined') {
             clearTokenCookies(res);
-            throw new ApiError(401, 'Refresh Token Missing');
+            throw new ApiError(401, 'Session expired or invalid. Please sign in again.');
         }
 
         const { user, rememberMe } = await authService.refreshToken(oldRefreshToken);
@@ -314,14 +314,14 @@ const refreshAccessToken = async (req, res, next) => {
         await setAuthTokens(res, 'refreshToken', newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
-        return response(res, 201, 'Token Refreshed');
+        return response(res, 201, 'Session renewed successfully.');
     }
     catch (error) {
         // Clear Cookie
         clearTokenCookies(res);
 
         if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ success: false, error: 'Session Expired, Please Login Again' });
+            return res.status(401).json({ success: false, error: 'Your session has expired. Please sign in again.' });
         }
         next(error);
     }

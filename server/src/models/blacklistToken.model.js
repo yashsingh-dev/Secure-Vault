@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { CONSTANTS } from '../config/constants';
+import { CONSTANTS } from '../config/constants.js';
 
 const BlacklistTokenModel = mongoose.Schema({
     token: {
