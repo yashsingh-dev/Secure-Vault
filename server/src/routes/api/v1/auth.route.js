@@ -1,8 +1,9 @@
 import express from 'express';
-const router = express.Router();
 import { authenticate } from '../../../middlewares/auth.middleware.js';
 import Controller from '../../../controllers/v1/auth.controller.js';
 
+
+const router = express.Router();
 
 router.post('/login',
     Controller.login

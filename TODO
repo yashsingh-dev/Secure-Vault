@@ -1,7 +1,7 @@
 Authentication:
 1. JWT Implementation (Access & Refresh Tokens) -  ✅
 2. HttpOnly Cookie Storage (Secure & SameSite: None Flags) - ✅
-3. Password Hashing (Slow Hashing with Argon2 or bcrypt) - ✅
+3. Password Hashing (Slow Hashing with bcrypt) - ✅
 4. Refresh Token Rotation - ✅
 5. Hashed Refresh Token Storage (MongoDB) - ✅
 6. Breach Detection Logic (Token Family Revocation) - ✅
@@ -12,6 +12,7 @@ Authentication:
 11. Implement recaptcha on admin login
 12. Add a toggle in the User Settings: "Always require OTP, even with Social Login
 13. Write test cases
+14. Write a file in both client and server which check for required .env keys
 
 
 2FA Authentication:
