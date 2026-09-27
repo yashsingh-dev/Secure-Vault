@@ -2,6 +2,7 @@ import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from "helmet";
 
 import dbConnection from './db/connection.js';
 import errorHandler from './middlewares/errorHandler.middleware.js';
@@ -10,6 +11,7 @@ import routes from './routes/index.js';
 const app = express();
 
 dbConnection();
+app.use(helmet());
 app.use(cors({
     origin: [process.env.CLIENT_URL_DEV, 'http://localhost:5173'],
     credentials: true,

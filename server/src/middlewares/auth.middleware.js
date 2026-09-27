@@ -16,7 +16,7 @@ export const authenticate = async (req, res, next) => {
 
         // Check for access token hash in Blacklist
         const hashAccessToken = secureHash(accessToken);
-        let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken });
+        let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken }).select('token -_id').lean();
         if (isBlacklisted) {
             throw new ApiError(403, 'Session has been revoked. Please sign in again.');
         }
@@ -26,7 +26,7 @@ export const authenticate = async (req, res, next) => {
         let decoded = jwt.verify(accessToken, secret_key);
 
         // Check token version in user 
-        let user_data = await userModel.findById(decoded._id);
+        let user_data = await userModel.findById(decoded._id).select('tokenVersion').lean();
         if (!user_data) {
             clearTokenCookies(res);
             throw new ApiError(409, 'User account no longer exists.');

@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 
 export const createHash = async (input) => {
     try {
-        const salt = await bcrypt.genSalt(12);
+        const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(input, salt);
         return hash;
     } catch (error) {

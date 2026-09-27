@@ -1,3 +1,5 @@
+import { CONSTANTS } from "../config/constants.js";
+
 const commonCookieOptions = {
     httpOnly: true,
     secure: true,
@@ -18,6 +20,6 @@ export const clearToken = async function (res, cookieName) {
 };
 
 export const clearTokenCookies = async function (res) {
-    res.clearCookie('accessToken', commonCookieOptions);
-    res.clearCookie('refreshToken', commonCookieOptions);
+    res.clearCookie(CONSTANTS.NAME.ACCESS_TOKEN, commonCookieOptions);
+    res.clearCookie(CONSTANTS.NAME.REFRESH_TOKEN, commonCookieOptions);
 };

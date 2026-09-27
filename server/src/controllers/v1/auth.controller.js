@@ -29,8 +29,8 @@ const login = async (req, res, next) => {
             const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
             // Set Cookie
-            await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-            await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
         }
 
         // Send Response
@@ -89,8 +89,8 @@ const googleAuth = async (req, res, next) => {
             const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
             // Set Cookie
-            await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-            await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
         }
 
         // Send Response
@@ -180,8 +180,8 @@ const verifyOTP = async (req, res, next) => {
         const refreshToken = await generateRefreshToken(user._id, rememberMe);
 
         // Set Cookie
-        await setAuthTokens(res, 'accessToken', accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-        await setAuthTokens(res, 'refreshToken', refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+        await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+        await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
         // Send Response
         return response(res, 200, 'Verification code verified successfully.', {
@@ -312,8 +312,8 @@ const refreshAccessToken = async (req, res, next) => {
             const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
 
             // Set Cookie
-            await setAuthTokens(res, 'accessToken', newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-            await setAuthTokens(res, 'refreshToken', newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
         }
 
         // Send Response
