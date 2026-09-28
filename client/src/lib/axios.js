@@ -10,6 +10,30 @@ export const apiClient = axios.create({
     },
 });
 
+// In-memory CSRF Token Storage
+let csrfToken = null;
+
+export const setCsrfToken = (token) => {
+    csrfToken = token;
+};
+
+export const getCsrfToken = () => csrfToken;
+
+export const fetchCsrfToken = async () => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/api/csrf-token`, {
+            withCredentials: true,
+        });
+        if (response.data?.csrfToken) {
+            csrfToken = response.data.csrfToken;
+            return csrfToken;
+        }
+    } catch (error) {
+        console.error('Failed to fetch CSRF token:', error);
+    }
+    return null;
+};
+
 // Generic helper function to handle API requests and standard error response
 export const request = async (config) => {
     try {
@@ -20,6 +44,24 @@ export const request = async (config) => {
         throw new Error(errorMessage);
     }
 };
+
+// Request Interceptor: Attach CSRF token to all state-changing requests
+apiClient.interceptors.request.use(
+    async (config) => {
+        const method = config.method?.toUpperCase();
+        if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+            // Lazy load token if not yet fetched
+            if (!csrfToken) {
+                await fetchCsrfToken();
+            }
+            if (csrfToken) {
+                config.headers['x-csrf-token'] = csrfToken;
+            }
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -44,6 +86,22 @@ apiClient.interceptors.response.use(
 
         if (error.response) {
             const { status, data } = error.response;
+
+            // Handle CSRF Token Expiration / Invalid Token (403)
+            if (
+                status === 403 &&
+                (data.code === 'EBADCSRFTOKEN' || data.message?.toLowerCase().includes('csrf')) &&
+                !originalRequest._retryCsrf
+            ) {
+                originalRequest._retryCsrf = true;
+                const newToken = await fetchCsrfToken();
+                if (newToken) {
+                    originalRequest.headers['x-csrf-token'] = newToken;
+                    return apiClient(originalRequest);
+                }
+            }
+
+            // Handle Access Token Expiration (401)
             if (
                 status === 401 &&
                 (data.message === 'Token Expired' ||

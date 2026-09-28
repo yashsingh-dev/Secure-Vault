@@ -12,6 +12,10 @@ const errorHandler = (err, req, res, next) => {
         statusCode = 401;
         message = 'Invalid session token. Please sign in again.';
     }
+    else if (err.code === 'EBADCSRFTOKEN' || err.message === 'Invalid or missing CSRF token') {
+        statusCode = 403;
+        message = 'Invalid or missing CSRF token. Please refresh the page and try again.';
+    }
 
     console.log(`[${statusCode}] Global Error: ${message}`);
 

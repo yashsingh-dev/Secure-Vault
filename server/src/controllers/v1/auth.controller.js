@@ -4,6 +4,7 @@ import ApiError from '../../utils/ApiError.js';
 import response from '../../utils/response.utils.js';
 import { CONSTANTS } from '../../config/constants.js';
 import authService from '../../services/v1/auth.service.js';
+import userService from '../../services/v1/user.service.js';
 import zod from '../../lib/schemas.js';
 
 
@@ -233,10 +234,10 @@ const checkAuth = async (req, res, next) => {
             throw new ApiError(401, 'Unauthorized access. Please sign in to continue.');
         }
 
+        const profile = await userService.getProfile(req.user);
+
         // Send Response
-        return response(res, 200, 'Session authenticated.', {
-            id: req.user,
-        });
+        return response(res, 200, 'Session authenticated.', profile);
     }
     catch (error) {
         next(error);

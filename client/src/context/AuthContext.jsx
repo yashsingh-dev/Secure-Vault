@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { AuthAPI } from '../api/auth.api';
+import { fetchCsrfToken } from '../lib/axios';
 
 const AuthContext = createContext(null);
 
@@ -9,8 +10,10 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const initAuth = async () => {
       try {
+        // Eagerly fetch CSRF token on initial application load
+        await fetchCsrfToken();
         const response = await AuthAPI.status();
         if (response.success && response.payload) {
           setUser(response.payload);
@@ -26,12 +29,14 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
       }
     };
-    checkAuthStatus();
+    initAuth();
   }, []);
 
   const login = (userData) => {
     setUser(userData);
     setIsAuthenticated(true);
+    // Refresh CSRF token upon session state change
+    fetchCsrfToken();
   };
 
   const logout = async () => {
@@ -42,6 +47,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsAuthenticated(false);
+      fetchCsrfToken();
     }
   };
 
@@ -53,11 +59,16 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsAuthenticated(false);
+      fetchCsrfToken();
     }
   };
 
+  const updateUser = (updatedData) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedData } : updatedData));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, logoutAll }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, logoutAll, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

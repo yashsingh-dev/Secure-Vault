@@ -13,7 +13,7 @@ export const CONSTANTS = {
         BLACKLIST_TOKEN: 1 * 60 * 60 // 1 hour
     },
     OTP: {
-        TESTING: false,
+        TESTING: true,
         LENGTH: 6,
         EXPIRY_MS: 15 * 60 * 1000, // 15 minutes
         COOL_DOWN_MS: 60 * 1000, // 1 minute

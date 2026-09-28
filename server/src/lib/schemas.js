@@ -35,6 +35,11 @@ export const otpForResetSchema = z.object({
     otp: otpCodeSchema
 });
 
+export const updateProfileSchema = z.object({
+    name: z.string().min(2, 'Name must be at least 2 characters long.').max(50, 'Name cannot exceed 50 characters.').optional(),
+    alwaysRequireOtp: z.boolean().optional()
+});
+
 export const schemas = {
     emailSchema,
     passwordSchema,
@@ -44,7 +49,8 @@ export const schemas = {
     resetPasswordSchema,
     registerSchema,
     otpSchema,
-    otpForResetSchema
+    otpForResetSchema,
+    updateProfileSchema
 };
 
 export default schemas;
