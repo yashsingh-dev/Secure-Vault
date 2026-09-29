@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import VerifyOtp from './pages/VerifyOtp';
 import ChangePassword from './pages/ChangePassword';
+import GoogleCallback from './pages/GoogleCallback';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/change-password/:token" element={<ChangePassword />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
       </Route>
       {/* Redirect unknown routes to home */}
       <Route path="*" element={<Navigate to="/" replace />} />

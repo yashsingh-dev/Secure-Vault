@@ -126,6 +126,8 @@ export default function Login() {
       }
     },
     flow: 'auth-code',
+    ux_mode: 'redirect', // Default is 'popup'. Changing to 'redirect' eliminates the transform popup!
+    redirect_uri: `${window.location.origin}/auth/callback`,
     onError: (error) => {
       console.log('Login Failed:', error);
       setIsGoogleLoading(false);

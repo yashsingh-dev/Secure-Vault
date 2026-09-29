@@ -123,7 +123,7 @@ const googleAuth = async (code) => {
         // Local verification: No network request needed!
         const ticket = await googleClient.verifyIdToken({
             idToken: tokens.id_token,
-            audience: process.env.GOOGLE_CLIENT_ID,
+            audience: process.env.OAUTH_GOOGLE_CLIENT_ID
         });
 
         const userData = await ticket.getPayload();
