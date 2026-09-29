@@ -6,7 +6,7 @@ export const {
     validateRequest,
     doubleCsrfProtection
 } = doubleCsrf({
-    getSecret: () => process.env.CSRF_SECRET || 'secure-vault-default-csrf-secret-key-32chars',
+    getSecret: () => process.env.CSRF_SECRET || 'default-key',
     getSessionIdentifier: (req) => {
         const userId = req?.user ? req.user.toString() : '';
         return userId;
