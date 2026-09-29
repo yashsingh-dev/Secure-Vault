@@ -233,9 +233,13 @@ const logout = async (accessToken, refreshToken) => {
             });
         }
 
-        // Create refreshToken hash delete from refreshToken collection
+        // Create refreshToken hash and delete entire token family from refreshToken collection
         const hashRefreshToken = secureHash(refreshToken);
-        await refreshTokenModel.findOneAndDelete({ token: hashRefreshToken, userId: user._id });
+        const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken, userId: user._id });
+        if (tokenDoc) {
+            const familyId = tokenDoc.familyId || tokenDoc._id;
+            await refreshTokenModel.deleteMany({ familyId });
+        }
 
     }
     catch (error) {
@@ -523,9 +527,11 @@ const refreshToken = async (oldRefreshToken) => {
             throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
+        const familyId = tokenDoc.familyId || tokenDoc._id;
+
         // CHECK GRACE PERIOD: Has this token already been rotated?
         if (tokenDoc.isRotated) {
-            const GRACE_PERIOD_MS = 20 * 1000; // 20 seconds grace period
+            const GRACE_PERIOD_MS = 10 * 1000; // 10 seconds grace period
             const timeSinceRotation = Date.now() - new Date(tokenDoc.rotatedAt).getTime();
             if (timeSinceRotation <= GRACE_PERIOD_MS) {
                 // Allowed! A concurrent request arrived right after rotation.
@@ -533,12 +539,12 @@ const refreshToken = async (oldRefreshToken) => {
                 const user = await userModel.findById(tokenDoc.userId);
                 if (!user) throw new ApiError(409, 'No account found with this email address.');
 
-                return { user, rememberMe: true, isGracePeriod: true };
+                return { user, rememberMe: true, isGracePeriod: true, familyId };
             }
             else {
-                // If used AFTER 20 seconds, this is a REUSE ATTACK (stolen token)!
-                // Security measure: Invalidate all refresh tokens for this user.
-                await refreshTokenModel.deleteMany({ userId: tokenDoc.userId });
+                // If used AFTER 10 seconds, this is a REUSE ATTACK (stolen token)!
+                // Security measure: Invalidate ONLY this compromised token family!
+                await refreshTokenModel.deleteMany({ familyId });
                 throw new ApiError(403, 'Compromised token detected. Please sign in again.');
             }
 
@@ -548,13 +554,6 @@ const refreshToken = async (oldRefreshToken) => {
         tokenDoc.isRotated = true;
         tokenDoc.rotatedAt = Date.now();
         await tokenDoc.save();
-
-        // Optional: Schedule real deletion after 30 seconds
-        setTimeout(async () => {
-            try {
-                await refreshTokenModel.findByIdAndDelete(tokenDoc._id);
-            } catch (e) { }
-        }, 30 * 1000);
 
         // Verify refresh token and expiry using its secret key
         const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
@@ -569,7 +568,7 @@ const refreshToken = async (oldRefreshToken) => {
             throw new ApiError(409, 'No account found with this email address.');
         }
 
-        return { user, rememberMe, isGracePeriod: false };
+        return { user, rememberMe, isGracePeriod: false, familyId };
 
     }
     catch (error) {
@@ -613,6 +612,7 @@ const getSessions = async (userId, currentRefreshToken) => {
 
             return {
                 id: doc._id.toString(),
+                familyId: (doc.familyId || doc._id).toString(),
                 ip: doc.ip || 'Unknown IP',
                 device: device || 'Desktop',
                 browser: browser || 'Unknown Browser',
@@ -652,7 +652,8 @@ const revokeSession = async (userId, sessionId, currentRefreshToken) => {
             }
         }
 
-        await refreshTokenModel.findByIdAndDelete(sessionId);
+        const familyId = session.familyId || session._id;
+        await refreshTokenModel.deleteMany({ familyId });
 
         return { isCurrent };
     } catch (error) {

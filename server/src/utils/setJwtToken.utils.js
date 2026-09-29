@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { CONSTANTS } from '../config/constants.js'
 import refreshTokenModel from '../models/refreshToken.model.js';
 import secureHash from './crypto.utils.js';
@@ -18,7 +19,7 @@ export const generateAccessToken = async function (userId, tokenVersion) {
     }
 }
 
-export const generateRefreshToken = async function (userId, rememberMe = false, meta = {}) {
+export const generateRefreshToken = async function (userId, rememberMe = false, meta = {}, familyId = null) {
     const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
     try {
         let refresh_token = jwt.sign({ _id: userId }, secret_key, {
@@ -30,10 +31,14 @@ export const generateRefreshToken = async function (userId, rememberMe = false, 
         // Generate hash of refresh token
         const hash_refresh_token = secureHash(refresh_token);
 
+        // Assign to existing family or start a new token family
+        const tokenFamilyId = familyId || new mongoose.Types.ObjectId();
+
         // Store in DB
         await refreshTokenModel.create({
             token: hash_refresh_token,
             userId,
+            familyId: tokenFamilyId,
             ip: meta.ip || 'Unknown IP',
             userAgent: meta.userAgent || '',
             device: meta.device || 'Desktop',

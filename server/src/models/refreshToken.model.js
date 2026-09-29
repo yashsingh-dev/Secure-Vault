@@ -12,6 +12,11 @@ const RefreshTokenModel = mongoose.Schema({
         ref: 'user',
         required: true
     },
+    familyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        index: true
+    },
     isRotated: {
         type: Boolean,
         default: false
@@ -50,5 +55,7 @@ const RefreshTokenModel = mongoose.Schema({
         expires: CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000
     }
 }, { timestamps: true });
+
+RefreshTokenModel.index({ userId: 1, familyId: 1 });
 
 export default mongoose.model('refreshToken', RefreshTokenModel);

@@ -308,14 +308,14 @@ const refreshAccessToken = async (req, res, next) => {
             throw new ApiError(401, 'Session expired or invalid. Please sign in again.');
         }
 
-        const { user, rememberMe, isGracePeriod } = await authService.refreshToken(oldRefreshToken);
+        const { user, rememberMe, isGracePeriod, familyId } = await authService.refreshToken(oldRefreshToken);
 
         if (!isGracePeriod) {
 
             // Generate new access and refresh token
             const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
             const clientMeta = parseClientMeta(req);
-            const newRefreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
+            const newRefreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
