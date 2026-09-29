@@ -16,7 +16,7 @@ app.use(helmet());
 app.use(cors({
     origin: [process.env.CLIENT_URL_DEV],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Cookie', 'x-csrf-token', 'X-CSRF-Token', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Cookie', 'x-csrf-token', 'X-CSRF-Token', 'Authorization', 'x-recaptcha-token', 'X-Recaptcha-Token'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));
 app.use(cookieParser());

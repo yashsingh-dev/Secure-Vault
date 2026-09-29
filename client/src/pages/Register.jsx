@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthAPI } from '../api/auth.api.js';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import RecaptchaField from '../components/RecaptchaField';
 import {
   HiOutlineUser,
   HiOutlineEnvelope,
@@ -39,6 +40,8 @@ export default function Register() {
     confirmPassword: '',
     termsAccepted: false,
   });
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -79,6 +82,8 @@ export default function Register() {
       newErrors.confirmPassword = 'Passwords do not match';
     if (!form.termsAccepted)
       newErrors.termsAccepted = 'You must accept the terms';
+    if (!recaptchaToken)
+      newErrors.recaptcha = 'Please complete the "I\'m not a robot" checkbox';
     return newErrors;
   };
 
@@ -96,6 +101,7 @@ export default function Register() {
         name: form.name,
         email: form.email,
         password: form.password,
+        recaptchaToken
       });
 
       toast.success('Check your email for verification code.');
@@ -109,6 +115,9 @@ export default function Register() {
       });
     } catch (error) {
       toast.error(error.message || 'Registration failed. Please try again.');
+      // Automatically reset reCAPTCHA widget on failed or errored submission
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -149,14 +158,16 @@ export default function Register() {
     googleLogin();
   };
 
-  const isFormValid = 
+  const isFormValid = Boolean(
     form.name.trim() && 
     form.email.trim() && 
     /\S+@\S+\.\S+/.test(form.email) && 
     form.password.length >= 8 && 
     form.password === form.confirmPassword && 
     strength.level > 1 && 
-    form.termsAccepted;
+    form.termsAccepted &&
+    recaptchaToken
+  );
 
   return (
     <div className="page-enter">
@@ -314,7 +325,20 @@ export default function Register() {
           <p className="form-error" style={{ marginTop: '-0.75rem', marginBottom: '1rem' }}>
             {errors.termsAccepted}
           </p>
-        )}
+        )}        {/* reCAPTCHA v2 Checkbox */}
+        <RecaptchaField
+          ref={recaptchaRef}
+          onChange={(token) => {
+            setRecaptchaToken(token);
+            if (errors.recaptcha) {
+              setErrors((prev) => ({ ...prev, recaptcha: '' }));
+            }
+          }}
+          onExpired={() => {
+            setRecaptchaToken(null);
+          }}
+          error={errors.recaptcha}
+        />
 
         {/* Submit */}
         <button type="submit" className="btn-primary" disabled={isLoading || !isFormValid}>

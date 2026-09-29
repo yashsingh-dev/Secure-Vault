@@ -16,7 +16,7 @@ export const authenticate = async (req, res, next) => {
 
         // Check for access token hash in Blacklist
         const hashAccessToken = secureHash(accessToken);
-        let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken }).select('token -_id').lean();
+        let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken }).select({ token: 1, _id: 0 }).lean();
         if (isBlacklisted) {
             throw new ApiError(403, 'Session has been revoked. Please sign in again.');
         }

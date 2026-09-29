@@ -1,15 +1,18 @@
 import express from 'express';
 import { authenticate } from '../../../middlewares/auth.middleware.js';
+import { verifyRecaptcha } from '../../../middlewares/recaptcha.middleware.js';
 import Controller from '../../../controllers/v1/auth.controller.js';
 
 
 const router = express.Router();
 
 router.post('/login',
+    verifyRecaptcha,
     Controller.login
 );
 
 router.post('/register',
+    verifyRecaptcha,
     Controller.register
 );
 

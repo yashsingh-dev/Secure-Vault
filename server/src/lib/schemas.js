@@ -9,7 +9,8 @@ export const otpCodeSchema = z.string().length(CONSTANTS.OTP.LENGTH, `Verificati
 export const loginSchema = z.object({
     email: emailSchema,
     password: passwordSchema,
-    rememberMe: rememberMeSchema
+    rememberMe: rememberMeSchema,
+    recaptchaToken: z.string().optional()
 });
 
 export const resetPasswordSchema = z.object({
@@ -22,6 +23,7 @@ export const registerSchema = z.object({
     name: z.string(),
     email: emailSchema,
     password: passwordSchema,
+    recaptchaToken: z.string().optional()
 });
 
 export const otpSchema = z.object({

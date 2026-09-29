@@ -1,11 +1,12 @@
 //TODO: Add Google Login
 //TODO: Create Terms and Privacy Policy Pages
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthAPI } from '../api/auth.api.js';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import RecaptchaField from '../components/RecaptchaField';
 import {
   HiOutlineEnvelope,
   HiOutlineLockClosed,
@@ -24,6 +25,8 @@ export default function Login() {
     rememberMe: false,
     termsAccepted: false,
   });
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -53,6 +56,8 @@ export default function Login() {
     if (form.password.length < 6) newErrors.password = 'Password must be at least 6 characters long';
     if (!form.termsAccepted)
       newErrors.termsAccepted = 'You must accept the terms';
+    if (!recaptchaToken)
+      newErrors.recaptcha = 'Please complete the "I\'m not a robot" checkbox';
     return newErrors;
   };
 
@@ -69,7 +74,8 @@ export default function Login() {
       const response = await AuthAPI.login({
         email: form.email,
         password: form.password,
-        rememberMe: form.rememberMe
+        rememberMe: form.rememberMe,
+        recaptchaToken
       });
 
       if (response.payload.is2FAEnabled) {
@@ -87,6 +93,9 @@ export default function Login() {
       }
     } catch (error) {
       toast.error(error.message || 'Login failed. Please try again.');
+      // Automatically reset reCAPTCHA widget on failed or errored submission
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +137,12 @@ export default function Login() {
     googleLogin();
   };
 
-  const isFormValid = form.email.trim() && form.password.trim() && form.termsAccepted;
+  const isFormValid = Boolean(
+    form.email.trim() &&
+    form.password.trim() &&
+    form.termsAccepted &&
+    recaptchaToken
+  );
 
   return (
     <div className="page-enter">
@@ -236,7 +250,20 @@ export default function Login() {
             {errors.termsAccepted}
           </p>
         )}
-
+        {/* reCAPTCHA v2 Checkbox */}
+        <RecaptchaField
+          ref={recaptchaRef}
+          onChange={(token) => {
+            setRecaptchaToken(token);
+            if (errors.recaptcha) {
+              setErrors((prev) => ({ ...prev, recaptcha: '' }));
+            }
+          }}
+          onExpired={() => {
+            setRecaptchaToken(null);
+          }}
+          error={errors.recaptcha}
+        />
 
         {/* Submit */}
         <button type="submit" className="btn-primary" disabled={isLoading || !isFormValid}>

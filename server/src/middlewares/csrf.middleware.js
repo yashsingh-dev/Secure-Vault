@@ -9,7 +9,6 @@ export const {
     getSecret: () => process.env.CSRF_SECRET || 'secure-vault-default-csrf-secret-key-32chars',
     getSessionIdentifier: (req) => {
         const userId = req?.user ? req.user.toString() : '';
-        console.log("User Id:", userId)
         return userId;
     },
     cookieName: '__Host-ps-csrf',
