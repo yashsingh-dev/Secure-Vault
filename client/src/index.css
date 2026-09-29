@@ -1366,6 +1366,35 @@ body {
   letter-spacing: -0.01em;
 }
 
+.session-id-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.725rem;
+  font-weight: 500;
+  color: #a2a2b8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.session-id-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.session-id-pill-icon {
+  font-size: 0.75rem;
+  color: #7b7b95;
+}
+
 .session-current-pill {
   display: inline-flex;
   align-items: center;

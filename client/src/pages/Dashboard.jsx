@@ -447,6 +447,19 @@ export default function Dashboard() {
                         <span className="session-device-name">
                           {session.browser || 'Browser'} on {session.os || 'Unknown OS'}
                         </span>
+                        {session.id && (
+                          <span
+                            className="session-id-pill"
+                            title={`Full Session ID: ${session.id}\nClick to copy`}
+                            onClick={() => {
+                              navigator.clipboard.writeText(session.id);
+                              toast.info(`Session ID copied: ...${session.id.slice(-6)}`);
+                            }}
+                          >
+                            <HiOutlineKey className="session-id-pill-icon" />
+                            <span>...{session.id.slice(-6)}</span>
+                          </span>
+                        )}
                         {session.isCurrent && (
                           <span className="session-current-pill">
                             <span className="session-current-dot" />

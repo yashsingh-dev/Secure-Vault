@@ -40,7 +40,9 @@ export const request = async (config) => {
         const response = await apiClient(config);
         return response.data;
     } catch (error) {
-        const errorMessage = error.response?.data?.message || `HTTP error! status: ${error.response?.status}`;
+        const errorMessage = error.response?.data?.message || error || `HTTP error! status: ${error.response?.status}`;
+        console.log("Error Message: ", error, " URL: ", config.url, " Method: ", config.method);
+        console.log("Error Response: ", error.response);
         throw new Error(errorMessage);
     }
 };

@@ -582,6 +582,7 @@ const getSessions = async (userId, currentRefreshToken) => {
         let currentTokenHash = null;
         if (currentRefreshToken && currentRefreshToken !== 'undefined') {
             currentTokenHash = secureHash(currentRefreshToken);
+            
             // Touch lastActive for current session
             await refreshTokenModel.updateOne(
                 { token: currentTokenHash, userId },
