@@ -18,7 +18,7 @@ export const generateAccessToken = async function (userId, tokenVersion) {
     }
 }
 
-export const generateRefreshToken = async function (userId, rememberMe = false) {
+export const generateRefreshToken = async function (userId, rememberMe = false, meta = {}) {
     const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
     try {
         let refresh_token = jwt.sign({ _id: userId }, secret_key, {
@@ -31,7 +31,16 @@ export const generateRefreshToken = async function (userId, rememberMe = false) 
         const hash_refresh_token = secureHash(refresh_token);
 
         // Store in DB
-        await refreshTokenModel.create({ token: hash_refresh_token, userId });
+        await refreshTokenModel.create({
+            token: hash_refresh_token,
+            userId,
+            ip: meta.ip || 'Unknown IP',
+            userAgent: meta.userAgent || '',
+            device: meta.device || 'Desktop',
+            browser: meta.browser || 'Unknown Browser',
+            os: meta.os || 'Unknown OS',
+            lastActive: new Date()
+        });
 
         return refresh_token;
     } catch (error) {

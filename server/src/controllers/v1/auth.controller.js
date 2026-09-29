@@ -6,6 +6,7 @@ import { CONSTANTS } from '../../config/constants.js';
 import authService from '../../services/v1/auth.service.js';
 import userService from '../../services/v1/user.service.js';
 import zod from '../../lib/schemas.js';
+import { parseClientMeta } from '../../utils/device.utils.js';
 
 
 const login = async (req, res, next) => {
@@ -27,7 +28,8 @@ const login = async (req, res, next) => {
         if (!is2FAEnabled) {
             // Generate JWT Token
             const accessToken = await generateAccessToken(user._id, user.tokenVersion);
-            const refreshToken = await generateRefreshToken(user._id, rememberMe);
+            const clientMeta = parseClientMeta(req);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -87,7 +89,8 @@ const googleAuth = async (req, res, next) => {
         if (!is2FAEnabled) {
             // Generate JWT Token
             const accessToken = await generateAccessToken(user._id, user.tokenVersion);
-            const refreshToken = await generateRefreshToken(user._id, rememberMe);
+            const clientMeta = parseClientMeta(req);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -178,7 +181,8 @@ const verifyOTP = async (req, res, next) => {
 
         // Generate JWT Token
         const accessToken = await generateAccessToken(user._id, user.tokenVersion);
-        const refreshToken = await generateRefreshToken(user._id, rememberMe);
+        const clientMeta = parseClientMeta(req);
+        const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
 
         // Set Cookie
         await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -310,7 +314,8 @@ const refreshAccessToken = async (req, res, next) => {
 
             // Generate new access and refresh token
             const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
-            const newRefreshToken = await generateRefreshToken(user._id, rememberMe);
+            const clientMeta = parseClientMeta(req);
+            const newRefreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -332,4 +337,55 @@ const refreshAccessToken = async (req, res, next) => {
 }
 
 
-export default { login, register, googleAuth, logout, logoutAll, checkAuth, sendOTP, verifyOtpForReset, resetPassword, verifyOTP, refreshAccessToken };
+const getSessions = async (req, res, next) => {
+    try {
+        const currentRefreshToken = req.cookies.refreshToken;
+        const sessions = await authService.getSessions(req.user, currentRefreshToken);
+
+        return response(res, 200, 'Active sessions retrieved successfully.', {
+            sessions,
+            total: sessions.length
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const revokeSession = async (req, res, next) => {
+    try {
+        const { sessionId } = req.params;
+        if (!sessionId) {
+            throw new ApiError(400, 'Session ID is required.');
+        }
+
+        const currentRefreshToken = req.cookies.refreshToken;
+        const { isCurrent } = await authService.revokeSession(req.user, sessionId, currentRefreshToken);
+
+        if (isCurrent) {
+            clearTokenCookies(res);
+        }
+
+        return response(res, 200, isCurrent ? 'Current session revoked successfully.' : 'Session revoked successfully.', {
+            isCurrent
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export default {
+    login,
+    register,
+    googleAuth,
+    logout,
+    logoutAll,
+    checkAuth,
+    sendOTP,
+    verifyOtpForReset,
+    resetPassword,
+    verifyOTP,
+    refreshAccessToken,
+    getSessions,
+    revokeSession
+};

@@ -20,6 +20,30 @@ const RefreshTokenModel = mongoose.Schema({
         type: Date,
         default: null
     },
+    ip: {
+        type: String,
+        default: 'Unknown IP'
+    },
+    userAgent: {
+        type: String,
+        default: ''
+    },
+    device: {
+        type: String,
+        default: 'Desktop'
+    },
+    browser: {
+        type: String,
+        default: 'Unknown Browser'
+    },
+    os: {
+        type: String,
+        default: 'Unknown OS'
+    },
+    lastActive: {
+        type: Date,
+        default: Date.now
+    },
     createdAt: {
         type: Date,
         default: Date.now,

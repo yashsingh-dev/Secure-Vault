@@ -41,6 +41,16 @@ router.get('/status',
     Controller.checkAuth
 );
 
+router.get('/sessions',
+    authenticate,
+    Controller.getSessions
+);
+
+router.delete('/sessions/:sessionId',
+    authenticate,
+    Controller.revokeSession
+);
+
 router.get('/logout',
     authenticate,
     Controller.logout

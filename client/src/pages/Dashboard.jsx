@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { UserAPI } from '../api/user.api';
+import { AuthAPI } from '../api/auth.api';
 import {
   HiOutlineShieldCheck,
   HiOutlineUser,
@@ -15,6 +16,12 @@ import {
   HiOutlineClock,
   HiOutlineKey,
   HiOutlineArrowPath,
+  HiOutlineComputerDesktop,
+  HiOutlineDevicePhoneMobile,
+  HiOutlineDeviceTablet,
+  HiOutlineGlobeAlt,
+  HiOutlineTrash,
+  HiOutlineFingerPrint,
 } from 'react-icons/hi2';
 
 export default function Dashboard() {
@@ -31,6 +38,12 @@ export default function Dashboard() {
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
+  // Active Sessions State
+  const [sessions, setSessions] = useState([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isRefreshingSessions, setIsRefreshingSessions] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState(null);
+
   // Sync state when auth user changes
   useEffect(() => {
     if (user) {
@@ -39,7 +52,24 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  // Eagerly refresh latest user profile on dashboard visit
+  // Eagerly refresh latest user profile and active sessions on dashboard visit
+  const fetchSessions = async (isManual = false) => {
+    try {
+      if (isManual) setIsRefreshingSessions(true);
+      else setIsLoadingSessions(true);
+
+      const res = await AuthAPI.getSessions();
+      if (res?.payload?.sessions) {
+        setSessions(res.payload.sessions);
+      }
+    } catch (err) {
+      console.warn('Failed to load active sessions:', err);
+    } finally {
+      setIsLoadingSessions(false);
+      setIsRefreshingSessions(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     const fetchLatestProfile = async () => {
@@ -57,6 +87,8 @@ export default function Dashboard() {
     };
 
     fetchLatestProfile();
+    fetchSessions();
+
     return () => {
       isMounted = false;
     };
@@ -137,6 +169,67 @@ export default function Dashboard() {
     } finally {
       setIsLoggingOutAll(false);
     }
+  };
+
+  const handleRevokeSession = async (sessionId, isCurrent) => {
+    try {
+      setRevokingSessionId(sessionId);
+      const res = await AuthAPI.revokeSession(sessionId);
+
+      if (res?.payload?.isCurrent || isCurrent) {
+        toast.info('Current session terminated. Signing out...');
+        await logout();
+        navigate('/login');
+        return;
+      }
+
+      toast.success(res?.message || 'Session revoked successfully.');
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    } catch (err) {
+      toast.error(err.message || 'Failed to revoke session. Please try again.');
+    } finally {
+      setRevokingSessionId(null);
+    }
+  };
+
+  const formatRelativeTime = (dateStr) => {
+    if (!dateStr) return 'Active now';
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffSecs = Math.floor((now - d) / 1000);
+
+      if (diffSecs < 60) return 'Active just now';
+      if (diffSecs < 3600) {
+        const mins = Math.floor(diffSecs / 60);
+        return `${mins}m ago`;
+      }
+      if (diffSecs < 86400) {
+        const hours = Math.floor(diffSecs / 3600);
+        return `${hours}h ago`;
+      }
+      const days = Math.floor(diffSecs / 86400);
+      if (days < 7) {
+        return `${days}d ago`;
+      }
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Active recently';
+    }
+  };
+
+  const getDeviceIcon = (deviceType) => {
+    const type = (deviceType || '').toLowerCase();
+    if (type.includes('mobile') || type.includes('phone') || type.includes('ios') || type.includes('android')) {
+      return <HiOutlineDevicePhoneMobile />;
+    }
+    if (type.includes('tablet') || type.includes('pad')) {
+      return <HiOutlineDeviceTablet />;
+    }
+    return <HiOutlineComputerDesktop />;
   };
 
   const formatDate = (dateStr) => {
@@ -298,6 +391,127 @@ export default function Dashboard() {
             </button>
           </div>
         </form>
+
+        {/* Active Sessions & Devices Section */}
+        <div className="dashboard-section">
+          <div className="sessions-header-wrapper">
+            <div className="sessions-title-group">
+              <HiOutlineFingerPrint />
+              <span>Active Sessions & Devices</span>
+              {sessions.length > 0 && (
+                <span className="sessions-count-badge">
+                  {sessions.length} {sessions.length === 1 ? 'Device' : 'Devices'}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn-refresh-sessions"
+              onClick={() => fetchSessions(true)}
+              disabled={isRefreshingSessions || isLoadingSessions}
+              title="Refresh active sessions"
+            >
+              <HiOutlineArrowPath
+                style={{
+                  animation:
+                    isRefreshingSessions || isLoadingSessions
+                      ? 'fast-spin 0.6s linear infinite'
+                      : 'none',
+                }}
+              />
+            </button>
+          </div>
+
+          {isLoadingSessions ? (
+            <div className="sessions-loading-state">
+              <div className="session-skeleton" />
+              <div className="session-skeleton" />
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="sessions-empty-state">
+              No active sessions detected.
+            </div>
+          ) : (
+            <div className="sessions-list">
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`session-card ${session.isCurrent ? 'session-card-current' : ''}`}
+                >
+                  <div className="session-info-left">
+                    <div className="session-icon-box">
+                      {getDeviceIcon(session.device)}
+                    </div>
+                    <div className="session-details">
+                      <div className="session-title-line">
+                        <span className="session-device-name">
+                          {session.browser || 'Browser'} on {session.os || 'Unknown OS'}
+                        </span>
+                        {session.isCurrent && (
+                          <span className="session-current-pill">
+                            <span className="session-current-dot" />
+                            Current Device
+                          </span>
+                        )}
+                      </div>
+                      <div className="session-meta-line">
+                        <span className="session-meta-item">
+                          <HiOutlineGlobeAlt />
+                          <span className="session-ip-mono">{session.ip}</span>
+                        </span>
+                        <span className="session-meta-item">
+                          <HiOutlineClock />
+                          <span>
+                            {session.isCurrent ? 'Active now' : formatRelativeTime(session.lastActive)}
+                          </span>
+                        </span>
+                        <span className="session-meta-item">
+                          <HiOutlineCalendar />
+                          <span>{formatDate(session.createdAt)}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="session-actions">
+                    {session.isCurrent ? (
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="btn-revoke-session"
+                        title="Sign out from this device"
+                      >
+                        <HiOutlineArrowRightOnRectangle />
+                        <span>Sign Out</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeSession(session.id, session.isCurrent)}
+                        disabled={revokingSessionId === session.id}
+                        className="btn-revoke-session"
+                        title="Revoke and terminate this device session"
+                      >
+                        {revokingSessionId === session.id ? (
+                          <>
+                            <HiOutlineArrowPath style={{ animation: 'fast-spin 0.6s linear infinite' }} />
+                            <span>Revoking...</span>
+                          </>
+                        ) : (
+                          <>
+                            <HiOutlineTrash />
+                            <span>Revoke</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Vault Telemetry Metadata Grid */}
         <div className="meta-grid">

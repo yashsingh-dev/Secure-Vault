@@ -74,5 +74,19 @@ export const AuthAPI = {
             method: 'POST',
             data: data,
         });
+    },
+
+    getSessions: async () => {
+        return request({
+            url: '/auth/sessions',
+            method: 'GET',
+        });
+    },
+
+    revokeSession: async (sessionId) => {
+        return request({
+            url: `/auth/sessions/${sessionId}`,
+            method: 'DELETE',
+        });
     }
 };

@@ -10,6 +10,7 @@ import sendOTPEmail from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { formatTimeRemaining } from "../../lib/time.js";
 import blacklistTokenModel from "../../models/blacklistToken.model.js";
+import { parseUserAgent } from "../../utils/device.utils.js";
 
 const login = async (email, password) => {
     try {
@@ -576,4 +577,99 @@ const refreshToken = async (oldRefreshToken) => {
     }
 }
 
-export default { login, register, googleAuth, logout, logoutAll, sendOTP, resetPassword, verifyOTP, verifyOtpForReset, refreshToken };
+const getSessions = async (userId, currentRefreshToken) => {
+    try {
+        let currentTokenHash = null;
+        if (currentRefreshToken && currentRefreshToken !== 'undefined') {
+            currentTokenHash = secureHash(currentRefreshToken);
+            // Touch lastActive for current session
+            await refreshTokenModel.updateOne(
+                { token: currentTokenHash, userId },
+                { $set: { lastActive: new Date() } }
+            );
+        }
+
+        // Fetch all active, non-rotated refresh tokens for the user
+        const tokenDocs = await refreshTokenModel.find({
+            userId,
+            isRotated: false
+        }).sort({ lastActive: -1, createdAt: -1 }).lean();
+
+        const sessions = tokenDocs.map((doc) => {
+            const isCurrent = Boolean(currentTokenHash && doc.token === currentTokenHash);
+
+            let browser = doc.browser;
+            let os = doc.os;
+            let device = doc.device;
+
+            // Fallback parse if default/unknown but userAgent exists
+            if ((!browser || browser === 'Unknown Browser') && doc.userAgent) {
+                const parsed = parseUserAgent(doc.userAgent);
+                browser = parsed.browser;
+                os = parsed.os;
+                device = parsed.device;
+            }
+
+            return {
+                id: doc._id.toString(),
+                ip: doc.ip || 'Unknown IP',
+                device: device || 'Desktop',
+                browser: browser || 'Unknown Browser',
+                os: os || 'Unknown OS',
+                userAgent: doc.userAgent || '',
+                createdAt: doc.createdAt,
+                lastActive: doc.lastActive || doc.updatedAt || doc.createdAt,
+                isCurrent
+            };
+        });
+
+        // Ensure current session appears at the top
+        sessions.sort((a, b) => {
+            if (a.isCurrent && !b.isCurrent) return -1;
+            if (!a.isCurrent && b.isCurrent) return 1;
+            return new Date(b.lastActive) - new Date(a.lastActive);
+        });
+
+        return sessions;
+    } catch (error) {
+        throw error;
+    }
+};
+
+const revokeSession = async (userId, sessionId, currentRefreshToken) => {
+    try {
+        const session = await refreshTokenModel.findOne({ _id: sessionId, userId });
+        if (!session) {
+            throw new ApiError(404, 'Session not found or already terminated.');
+        }
+
+        let isCurrent = false;
+        if (currentRefreshToken && currentRefreshToken !== 'undefined') {
+            const currentTokenHash = secureHash(currentRefreshToken);
+            if (session.token === currentTokenHash) {
+                isCurrent = true;
+            }
+        }
+
+        await refreshTokenModel.findByIdAndDelete(sessionId);
+
+        return { isCurrent };
+    } catch (error) {
+        throw error;
+    }
+};
+
+export default {
+    login,
+    register,
+    googleAuth,
+    logout,
+    logoutAll,
+    sendOTP,
+    resetPassword,
+    verifyOTP,
+    verifyOtpForReset,
+    refreshToken,
+    getSessions,
+    revokeSession
+};
