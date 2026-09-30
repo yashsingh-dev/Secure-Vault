@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { setAuthTokens, clearTokenCookies } from '../../utils/setCookies.utils.js'
 import { generateAccessToken, generateRefreshToken, generateResetToken } from '../../utils/setJwtToken.utils.js';
 import ApiError from '../../utils/ApiError.js';
@@ -27,9 +28,10 @@ const login = async (req, res, next) => {
 
         if (!is2FAEnabled) {
             // Generate JWT Token
-            const accessToken = await generateAccessToken(user._id, user.tokenVersion);
+            const familyId = new mongoose.Types.ObjectId();
+            const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const clientMeta = parseClientMeta(req);
-            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -88,9 +90,10 @@ const googleAuth = async (req, res, next) => {
 
         if (!is2FAEnabled) {
             // Generate JWT Token
-            const accessToken = await generateAccessToken(user._id, user.tokenVersion);
+            const familyId = new mongoose.Types.ObjectId();
+            const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const clientMeta = parseClientMeta(req);
-            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
+            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 
             // Set Cookie
             await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -180,9 +183,10 @@ const verifyOTP = async (req, res, next) => {
         const { user } = await authService.verifyOTP(email, otp);
 
         // Generate JWT Token
-        const accessToken = await generateAccessToken(user._id, user.tokenVersion);
+        const familyId = new mongoose.Types.ObjectId();
+        const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
         const clientMeta = parseClientMeta(req);
-        const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta);
+        const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 
         // Set Cookie
         await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
@@ -313,7 +317,7 @@ const refreshAccessToken = async (req, res, next) => {
         if (!isGracePeriod) {
 
             // Generate new access and refresh token
-            const newAccessToken = await generateAccessToken(user._id, user.tokenVersion);
+            const newAccessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const clientMeta = parseClientMeta(req);
             const newRefreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 

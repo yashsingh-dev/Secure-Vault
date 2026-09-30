@@ -4,12 +4,12 @@ export const CONSTANTS = {
         REFRESH_TOKEN: 'refreshToken'
     },
     AUTH_TOKEN: {
-        ACCESS_TOKEN: '10m',
-        // ACCESS_TOKEN: '1m',
+        ACCESS_TOKEN: '20m',
+        // ACCESS_TOKEN: '2m',
         REFRESH_TOKEN: '1d',
         LONG_REFRESH_TOKEN: '7d',
-        ACCESS_TOKEN_MS: 10 * 60 * 1000, // 10 minutes
-        // ACCESS_TOKEN_MS: 1 * 60 * 1000, // 1 minute
+        ACCESS_TOKEN_MS: 20 * 60 * 1000, // 20 minutes
+        // ACCESS_TOKEN_MS: 2 * 60 * 1000, // 2 minute
         REFRESH_TOKEN_MS: 1 * 24 * 60 * 60 * 1000, // 1 day
         LONG_REFRESH_TOKEN_MS: 7 * 24 * 60 * 60 * 1000, // 7 days
         BLACKLIST_TOKEN: 1 * 60 * 60 // 1 hour

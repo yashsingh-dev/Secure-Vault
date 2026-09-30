@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import blacklistTokenModel from "../models/blacklistToken.model.js";
+import refreshTokenModel from "../models/refreshToken.model.js";
 import ApiError from '../utils/ApiError.js';
 import secureHash from "../utils/crypto.utils.js";
 import userModel from '../models/user.model.js';
@@ -25,8 +26,12 @@ export const authenticate = async (req, res, next) => {
         const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
         let decoded = jwt.verify(accessToken, secret_key);
 
-        // Check token version in user 
-        let user_data = await userModel.findById(decoded._id).select('tokenVersion').lean();
+        // Check token version in user and verify that token family / session is still active in parallel
+        const [user_data, isSessionActive] = await Promise.all([
+            userModel.findById(decoded._id).select('tokenVersion').lean(),
+            decoded.familyId ? refreshTokenModel.exists({ familyId: decoded.familyId }) : true
+        ]);
+
         if (!user_data) {
             clearTokenCookies(res);
             throw new ApiError(409, 'User account no longer exists.');
@@ -37,9 +42,16 @@ export const authenticate = async (req, res, next) => {
             throw new ApiError(401, 'Session has ended. Please sign in again.');
         }
 
+        if (!isSessionActive) {
+            clearTokenCookies(res);
+            throw new ApiError(401, 'Session has been revoked. Please sign in again.');
+        }
+
         req.user = decoded._id;
+        req.familyId = decoded.familyId;
         next();
     }
+
     catch (error) {
         next(error);
     }
