@@ -22,50 +22,118 @@ const login = async (email, password) => {
         }
 
         // Check Account Blocked
-        if (user.isBlocked) {
-            if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
+        let currentUser = user;
+        if (currentUser.isBlocked) {
+            if (currentUser.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
             }
-            user.isBlocked = false;
-            user.blockReason = null;
-            user.blockedAt = null;
-            user.blockExpiresAt = null;
-            await user.save();
+
+            // Atomically unblock ONLY if isBlocked is still true in the database
+            const unblockedUser = await userModel.findOneAndUpdate(
+                { _id: currentUser._id, isBlocked: true },
+                {
+                    $set: {
+                        isBlocked: false,
+                        blockReason: null,
+                        blockedAt: null,
+                        blockExpiresAt: null
+                    }
+                },
+                { new: true }
+            ).select('+password');
+
+            if (unblockedUser) {
+                currentUser = unblockedUser;
+            } else {
+                // Another concurrent request completed the unblock right before this one.
+                // Fetch the fresh document to ensure our in-memory data matches the true DB state.
+                const freshUser = await userModel.findById(currentUser._id).select('+password');
+                if (freshUser) {
+                    currentUser = freshUser;
+                    // Check if a subsequent event/admin re-blocked the user in that tiny window
+                    if (currentUser.isBlocked && currentUser.blockExpiresAt > Date.now()) {
+                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
+                    }
+                }
+            }
         }
 
         // Check if account is associated with Google
-        if (user.googleLogin) {
+        if (currentUser.googleLogin) {
             throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
         // Check Password
-        const isMatch = await verifyHash(password, user.password);
+        const isMatch = await verifyHash(password, currentUser.password);
         if (!isMatch) {
             throw new ApiError(401, 'Incorrect email or password. Please try again.');
         }
 
         // Check 2FA
-        if (user.settings.alwaysRequireOtp || !user.isVerified) {
+        if (currentUser.settings.alwaysRequireOtp || !currentUser.isVerified) {
+            const now = Date.now();
 
-            // Generate OTP
+            // 1. If cooldown is currently active, don't generate a new OTP or send another email.
+            // Allow the user to proceed to the OTP verification screen for the existing code.
+            if (currentUser.otpCoolDown && currentUser.otpCoolDown > now && currentUser.otpExpiry > now) {
+                return { user: currentUser, is2FAEnabled: true };
+            }
+
+            // 2. Generate new OTP parameters
             const otp = generateOTP();
-            user.otp = otp;
-            user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-            user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-            user.otpAttempts = 0;
-            await user.save();
+            const otpExpiry = now + CONSTANTS.OTP.EXPIRY_MS;
+            const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
-            // Send Email
-            await sendOTPEmail(user.email, otp);
+            // 3. Atomically update the database only if cooldown is expired
+            const updatedUser = await userModel.findOneAndUpdate(
+                {
+                    _id: currentUser._id,
+                    $or: [
+                        { otpCoolDown: null },
+                        { otpCoolDown: { $lte: now } }
+                    ]
+                },
+                {
+                    $set: {
+                        otp,
+                        otpExpiry,
+                        otpCoolDown,
+                        otpAttempts: 0
+                    }
+                },
+                { new: true }
+            );
 
-            return { user, is2FAEnabled: true };
+            // If another concurrent request just updated the OTP milliseconds ago,
+            // updatedUser will be null. We safely return without sending a conflicting email.
+            if (!updatedUser) {
+                return { user: currentUser, is2FAEnabled: true };
+            }
+
+            // 4. Send email; if sending fails, roll back the OTP so the user isn't stuck
+            try {
+                await sendOTPEmail(currentUser.email, otp);
+            } catch (error) {
+                // Rollback OTP in DB so user is not stuck with an unsent code
+                await userModel.updateOne(
+                    { _id: currentUser._id },
+                    { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                );
+                throw new ApiError(500, 'Unable to send verification code. Please try again.');
+            }
+
+            return { user: updatedUser, is2FAEnabled: true };
         }
 
-        // Update Last Login
-        user.lastLogin = Date.now();
-        await user.save();
+        // Update Last Login atomically without overwriting any other fields or relying on in-memory .save()
+        const now = Date.now();
+        await userModel.updateOne(
+            { _id: currentUser._id },
+            { $set: { lastLogin: now } }
+        );
+        currentUser.lastLogin = now;
 
-        return { user, is2FAEnabled: false };
+        return { user: currentUser, is2FAEnabled: false };
     }
     catch (error) {
         throw error;
@@ -88,15 +156,23 @@ const register = async (name, email, password) => {
         const otp = generateOTP();
 
         // Create User
-        const new_user = await userModel.create({
-            name,
-            email,
-            password: hash_password,
-            otp,
-            otpExpiry: Date.now() + CONSTANTS.OTP.EXPIRY_MS,
-            otpCoolDown: Date.now() + CONSTANTS.OTP.COOL_DOWN_MS,
-            otpAttempts: 0
-        });
+        let new_user;
+        try {
+            new_user = await userModel.create({
+                name,
+                email,
+                password: hash_password,
+                otp,
+                otpExpiry: Date.now() + CONSTANTS.OTP.EXPIRY_MS,
+                otpCoolDown: Date.now() + CONSTANTS.OTP.COOL_DOWN_MS,
+                otpAttempts: 0
+            });
+        } catch (dbError) {
+            if (dbError.code === 11000) {
+                throw new ApiError(409, 'An account with this email already exists. Please sign in instead.');
+            }
+            throw dbError;
+        }
 
         // Send Email
         try {
@@ -527,7 +603,7 @@ const refreshToken = async (oldRefreshToken) => {
             throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
-        const familyId = tokenDoc.familyId || tokenDoc._id;
+        const familyId = tokenDoc.familyId;
 
         // CHECK GRACE PERIOD: Has this token already been rotated?
         if (tokenDoc.isRotated) {
@@ -581,7 +657,7 @@ const getSessions = async (userId, currentRefreshToken) => {
         let currentTokenHash = null;
         if (currentRefreshToken && currentRefreshToken !== 'undefined') {
             currentTokenHash = secureHash(currentRefreshToken);
-            
+
             // Touch lastActive for current session
             await refreshTokenModel.updateOne(
                 { token: currentTokenHash, userId },

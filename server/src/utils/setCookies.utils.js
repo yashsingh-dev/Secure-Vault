@@ -7,7 +7,7 @@ const commonCookieOptions = {
     path: '/'
 };
 
-export const setAuthTokens = async function (res, cookieName, token, maxAge) {
+export const setAuthTokens = function (res, cookieName, token, maxAge) {
 
     res.cookie(cookieName, token, {
         ...commonCookieOptions,
@@ -15,11 +15,11 @@ export const setAuthTokens = async function (res, cookieName, token, maxAge) {
     });
 };
 
-export const clearToken = async function (res, cookieName) {
+export const clearToken = function (res, cookieName) {
     res.clearCookie(cookieName, commonCookieOptions);
 };
 
-export const clearTokenCookies = async function (res) {
+export const clearTokenCookies = function (res) {
     res.clearCookie(CONSTANTS.NAME.ACCESS_TOKEN, commonCookieOptions);
     res.clearCookie(CONSTANTS.NAME.REFRESH_TOKEN, commonCookieOptions);
 };

@@ -29,13 +29,17 @@ const login = async (req, res, next) => {
         if (!is2FAEnabled) {
             // Generate JWT Token
             const familyId = new mongoose.Types.ObjectId();
-            const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const clientMeta = parseClientMeta(req);
-            const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
+
+            // Generate tokens in parallel
+            const [accessToken, refreshToken] = await Promise.all([
+                generateAccessToken(user._id, user.tokenVersion, familyId),
+                generateRefreshToken(user._id, rememberMe, clientMeta, familyId)
+            ]);
 
             // Set Cookie
-            await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-            await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
         }
 
         // Send Response
@@ -91,8 +95,9 @@ const googleAuth = async (req, res, next) => {
         if (!is2FAEnabled) {
             // Generate JWT Token
             const familyId = new mongoose.Types.ObjectId();
-            const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const clientMeta = parseClientMeta(req);
+
+            const accessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
             const refreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
 
             // Set Cookie
