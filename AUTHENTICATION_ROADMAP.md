@@ -160,5 +160,64 @@ On the dashboard:
 #### What I did:
 Even the most sophisticated token architecture is useless if bots can brute-force passwords or attackers use leaked credentials.
 * Added time-limited, 6-digit email verification codes with cooldown periods and account lockouts after consecutive failed attempts.
-* Added an optional user security preference to always require a verification code on login.
-* Added reCAPTCHA verification on authentication forms to stop automated brute-force scripts and credential-stuffing bots.
+* Added an optional user security preference to always require a verification code on login (even for social sign-ins).
+* Added Google reCAPTCHA v2 verification on authentication forms to stop automated brute-force scripts and credential-stuffing bots.
+
+---
+
+### Step 11: The Access Token Blind Spot (Binding Access Tokens to Token Families)
+
+#### The Problem (Cons) - The Silent Vulnerability in Remote Revocation:
+When building Step 8 and Step 9, a subtle but serious security gap remained:
+* For a **single-device logout**, the server puts the current access token in a temporary blacklist cache.
+* For **"Logout from all devices"**, incrementing `tokenVersion` invalidates all access tokens globally.
+* **BUT what happens when a user views their Active Sessions on their phone and revokes an unrecognized Laptop session?**
+  * The server deleted the Laptop's refresh token family. This prevented the Laptop from *refreshing*.
+  * **However, the Laptop's current access token was still alive in memory!** The attacker could continue making authenticated API requests until that access token naturally expired (10 to 20 minutes).
+  * Why? Because we couldn't increment `tokenVersion` (that would log out the user's phone too), and the server had no way to capture and blacklist the remote Laptop's access token without it being sent to the server.
+
+#### What I did:
+Instead of trying to track and store raw access tokens in a bloated blacklist collection:
+* We embedded the session's **`familyId` directly inside the Access Token JWT payload**:
+  ```json
+  {
+    "_id": "user_id_here",
+    "tokenVersion": 1,
+    "familyId": "family_id_here"
+  }
+  ```
+* In `auth.middleware.js`, we use `Promise.all` to verify both conditions in parallel:
+  1. Is the `tokenVersion` still valid on the user record?
+  2. Does this specific `familyId` still exist in the database? (`refreshTokenModel.exists({ familyId })`)
+* When an unrecognized device is revoked from the dashboard (or destroyed by breach detection), its entire token family is deleted from the database.
+* The moment that revoked device sends its very next API request, the middleware sees that its `familyId` is gone, immediately wipes its cookies, and returns `401 Unauthorized`.
+
+#### Why this is great:
+* **Zero-delay instant revocation:** Even if an access token has 15 minutes of remaining life, revoking that session terminates access immediately on the next request.
+* **Zero extra database collections or fields:** We reuse the already-indexed `familyId` field in the refresh token collection.
+* **No added latency:** Running `userModel.findById` and `refreshTokenModel.exists` concurrently with `Promise.all` against indexed B-tree fields executes in single-digit milliseconds.
+
+---
+
+### Step 12: Hybrid Social Login & Account Linking (OAuth 2.0 Auth-Code Flow)
+
+#### What I did:
+Users expect modern one-click logins with Google, but combining social logins with a strict token architecture requires careful design:
+* Implemented the **OAuth 2.0 Authorization Code flow with redirect mode**:
+  * Frontend requests an authorization code from Google.
+  * Google redirects back to a dedicated callback handler (`/auth/callback`).
+  * Backend exchanges the code directly with Google using its client secret and verifies the ID token's RS256 cryptographic signature locally.
+* **Account Linking & Segregation:**
+  * Accounts created via Google Login are flagged with `googleLogin: true`, preventing attackers from taking over Google accounts with local password logins.
+  * If the user enables "Always require OTP", even Google logins must complete the email 2FA verification before auth cookies are minted.
+* **Full Integration with Token Families:** Google logins generate a fresh `familyId`, issue device-fingerprinted refresh tokens, and respect all session management features.
+
+---
+
+### Step 13: Strict Environment & Failsafe Startup Validation
+
+#### What I did:
+An authentication system is only as secure as its runtime configuration. A missing secret key or database URI in production can silently cripple security logic or cause runtime crashes during active user sessions.
+* Created a dedicated startup validator (`validateEnv.js`) that boots before any server logic or database connections initialize.
+* **Required Keys Guard:** Halts the server process (`process.exit(1)`) with a descriptive error report if critical credentials (`MONGO_URI`, `OAUTH_GOOGLE_SECRET`, `RECAPTCHA_SECRET_KEY`, `RESEND_API_KEY`) are missing.
+* **Safe Fallbacks with Warnings:** Provides sensible defaults for non-critical development variables (`PORT`, `CLIENT_URL_DEV`, `JWT_*_KEY`) while logging explicit warnings so developers are alerted before deploying to production.
