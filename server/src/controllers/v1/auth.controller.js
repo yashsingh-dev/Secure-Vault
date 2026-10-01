@@ -226,8 +226,9 @@ const logoutAll = async (req, res, next) => {
         const accessToken = getAccessToken(req);
         const refreshToken = getRefreshToken(req);
         const userId = req.user;
+        const currentTokenVersion = req.tokenVersion;
 
-        await authService.logoutAll(accessToken, refreshToken, userId);
+        await authService.logoutAll(accessToken, refreshToken, userId, currentTokenVersion);
 
         // Clear Cookie
         clearTokenCookies(res);

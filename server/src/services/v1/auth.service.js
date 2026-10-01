@@ -525,7 +525,6 @@ const googleAuth = async (code) => {
 
 const logout = async (accessToken, refreshToken) => {
     try {
-        let userId = null;
 
         // 1. Invalidate Refresh Token Session Family if refreshToken exists
         if (refreshToken && refreshToken !== 'undefined') {
@@ -533,7 +532,6 @@ const logout = async (accessToken, refreshToken) => {
                 const hashedRefreshToken = secureHash(refreshToken);
                 const tokenDoc = await refreshTokenModel.findOne({ token: hashedRefreshToken });
                 if (tokenDoc) {
-                    userId = tokenDoc.userId;
                     const familyId = tokenDoc.familyId || tokenDoc._id;
 
                     await refreshTokenModel.deleteMany({ familyId });
@@ -558,14 +556,38 @@ const logout = async (accessToken, refreshToken) => {
     }
 }
 
-const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) => {
+const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null, expectedTokenVersion = null) => {
     try {
-        let userId = authenticatedUserId;
+        const userIdStr = authenticatedUserId ? authenticatedUserId.toString() : null;
+        if (!userIdStr) {
+            return true;
+        }
 
-        // 1. Fetch user's active session family IDs before deleting to clean up Redis session keys
+        // 1. Optimistic Concurrency Control (CAS):
+        // Only increment tokenVersion if it matches expectedTokenVersion.
+        const updateQuery = { _id: userIdStr };
+        if (expectedTokenVersion !== null && expectedTokenVersion !== undefined) {
+            updateQuery.tokenVersion = expectedTokenVersion;
+        }
+
+        const updatedUserDoc = await userModel.findOneAndUpdate(
+            updateQuery,
+            { $inc: { tokenVersion: 1 } },
+            { new: true, select: { tokenVersion: 1 } }
+        );
+
+        // If a concurrent request already updated tokenVersion, exit early.
+        // Do not touch Redis or delete any keys; controller will simply clear cookies and return 200.
+        if (!updatedUserDoc) {
+            return true;
+        }
+
+        const newTokenVersion = updatedUserDoc.tokenVersion;
+
+        // 2. Fetch user's active session family IDs before deleting from MongoDB
         let sessionKeys = [];
         try {
-            const activeSessions = await refreshTokenModel.find({ userId }).select({ familyId: 1 }).lean();
+            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1 }).lean();
             sessionKeys = activeSessions
                 .map(s => s.familyId ? REDIS_KEYS.session(s.familyId.toString()) : null)
                 .filter(Boolean);
@@ -573,20 +595,18 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) 
             console.error('[LogoutAll Fetch Sessions Warning]:', err.message);
         }
 
-        // 2. Database Operations (Concurrent Execution)
+        // 3. Delete all sessions in MongoDB, sync Redis userProfile, and delete session keys
         await Promise.all([
-            refreshTokenModel.deleteMany({ userId }),
-            userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } })
+            refreshTokenModel.deleteMany({ userId: userIdStr }),
+            sessionKeys.length > 0 ? safeRedis.del(...sessionKeys) : Promise.resolve(),
+            safeRedis.updateUserProfile(userIdStr, { tokenVersion: newTokenVersion })
         ]);
 
-        // 3. Redis Cache Invalidation (Batch delete tokenVersion and all active sessions)
-        safeRedis.del(REDIS_KEYS.userTokenVersion(userId.toString()), ...sessionKeys);
-
-        // 4. Blacklist current access token if present (Fixed 10 minutes TTL)
+        // 4. Blacklist current access token in Redis (Fixed 10 minutes TTL)
         if (accessToken && accessToken !== 'undefined') {
             const hashAccessToken = secureHash(accessToken);
             const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-            safeRedis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', ttl);
+            await safeRedis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', ttl);
         }
 
         return true;

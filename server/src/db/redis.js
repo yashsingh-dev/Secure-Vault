@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import REDIS_KEYS from '../config/redisKeys';
+import REDIS_KEYS from '../config/redisKeys.js';
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 

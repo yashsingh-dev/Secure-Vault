@@ -88,6 +88,7 @@ export const authenticate = async (req, res, next) => {
         }
 
         req.user = decoded._id;
+        req.tokenVersion = decoded.tokenVersion;
         req.familyId = decoded.familyId;
         next();
     }
