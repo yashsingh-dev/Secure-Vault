@@ -270,25 +270,19 @@ const logout = async (req, res, next) => {
         const accessToken = req.cookies.accessToken;
         const refreshToken = req.cookies.refreshToken;
 
-        // Check Refresh Token
-        if (!refreshToken || refreshToken === 'undefined') {
-            // Logout is done at the end
-            clearTokenCookies(res);
-            return response(res, 200, 'Signed out successfully.');
+        // Perform best-effort cleanup in database
+        if (accessToken || refreshToken) {
+            await authService.logout(accessToken, refreshToken);
         }
 
-        await authService.logout(accessToken, refreshToken);
-
-        // Clear Cookie
+        // Always Clear Cookies and return success
         clearTokenCookies(res);
-
-        // Send Response
         return response(res, 200, 'Signed out successfully.');
     }
     catch (error) {
-        // Always clear cookies on any logout error to prevent a bad state
+        // Guarantee cookies are wiped even if an unexpected internal error occurs
         clearTokenCookies(res);
-        next(error);
+        return response(res, 200, 'Signed out successfully.');
     }
 }
 
@@ -296,13 +290,9 @@ const logoutAll = async (req, res, next) => {
     try {
         const accessToken = req.cookies.accessToken;
         const refreshToken = req.cookies.refreshToken;
+        const userId = req.user;
 
-        // Check Refresh Token
-        if (!refreshToken || refreshToken === 'undefined') {
-            throw new ApiError(400, 'Session expired or invalid. Please sign in again.');
-        }
-
-        await authService.logoutAll(accessToken, refreshToken);
+        await authService.logoutAll(accessToken, refreshToken, userId);
 
         // Clear Cookie
         clearTokenCookies(res);
@@ -311,6 +301,7 @@ const logoutAll = async (req, res, next) => {
         return response(res, 200, 'Signed out from all devices successfully.');
     }
     catch (error) {
+        clearTokenCookies(res);
         next(error);
     }
 }

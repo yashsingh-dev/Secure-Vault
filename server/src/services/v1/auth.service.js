@@ -11,6 +11,7 @@ import jwt from 'jsonwebtoken';
 import { formatTimeRemaining } from "../../lib/time.js";
 import blacklistTokenModel from "../../models/blacklistToken.model.js";
 import { parseUserAgent } from "../../utils/device.utils.js";
+import mongoose from "mongoose";
 
 const login = async (email, password) => {
     try {
@@ -386,69 +387,99 @@ const googleAuth = async (code) => {
 
 const logout = async (accessToken, refreshToken) => {
     try {
+        let userId = null;
 
-        // Check if refreshToken is valid.
-        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-        const decoded = jwt.verify(refreshToken, secret_key);
-
-        // Check if the user from the token exists
-        const user = await userModel.findById(decoded._id);
-        if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+        // 1. Invalidate Refresh Token Session Family if refreshToken exists
+        if (refreshToken && refreshToken !== 'undefined') {
+            try {
+                const hashedRefreshToken = secureHash(refreshToken);
+                const tokenDoc = await refreshTokenModel.findOne({ token: hashedRefreshToken });
+                if (tokenDoc) {
+                    userId = tokenDoc.userId;
+                    const familyId = tokenDoc.familyId || tokenDoc._id;
+                    await refreshTokenModel.deleteMany({ familyId });
+                }
+            } catch (err) {
+                // Silently continue if refresh token lookup fails
+            }
         }
 
-        // Create accessToken hash and store it in blacklist
-        if (accessToken) {
-            const hashAccessToken = secureHash(accessToken);
-            await blacklistTokenModel.create({
-                token: hashAccessToken,
-                userId: user._id
-            });
+        // 2. Blacklist Access Token if provided
+        if (accessToken && accessToken !== 'undefined') {
+            try {
+                // If we don't have userId yet, try to decode from accessToken (even if expired)
+                if (!userId) {
+                    const decoded = jwt.decode(accessToken);
+                    if (decoded && decoded._id) {
+                        userId = decoded._id;
+                    }
+                }
+
+                if (userId) {
+                    const hashedAccessToken = secureHash(accessToken);
+                    // Use updateOne with upsert to prevent duplicate key crashes on concurrent logout
+                    await blacklistTokenModel.updateOne(
+                        { token: hashedAccessToken },
+                        { $setOnInsert: { token: hashedAccessToken, userId, createdAt: new Date() } },
+                        { upsert: true }
+                    );
+                }
+            } catch (err) {
+                // Silently ignore blacklist insertion failures during logout
+            }
         }
 
-        // Create refreshToken hash and delete entire token family from refreshToken collection
-        const hashRefreshToken = secureHash(refreshToken);
-        const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken, userId: user._id });
-        if (tokenDoc) {
-            const familyId = tokenDoc.familyId || tokenDoc._id;
-            await refreshTokenModel.deleteMany({ familyId });
-        }
-
+        return true;
     }
     catch (error) {
         throw error;
     }
 }
 
-const logoutAll = async (accessToken, refreshToken) => {
+const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) => {
     try {
+        let userId = authenticatedUserId;
 
-        // Check if refreshToken is valid.
-        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-        const decoded = jwt.verify(refreshToken, secret_key);
-
-        // Check if the user from the token exists
-        const user = await userModel.findById(decoded._id);
-        if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+        // 1. Identify User from refreshToken if not passed from req.user
+        if (!userId && refreshToken && refreshToken !== 'undefined') {
+            try {
+                const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
+                const decoded = jwt.verify(refreshToken, secret_key);
+                userId = decoded._id;
+            } catch (err) {
+                const decoded = jwt.decode(refreshToken);
+                if (decoded && decoded._id) userId = decoded._id;
+            }
         }
 
-        // Create accessToken hash and store it in blacklist
-        if (accessToken) {
-            const hashAccessToken = secureHash(accessToken);
-            await blacklistTokenModel.create({
-                token: hashAccessToken,
-                userId: user._id
-            });
+        // 2. Identify from accessToken if still needed
+        if (!userId && accessToken && accessToken !== 'undefined') {
+            const decoded = jwt.decode(accessToken);
+            if (decoded && decoded._id) userId = decoded._id;
         }
 
-        // Delete all from refreshToken collection
-        await refreshTokenModel.deleteMany({ userId: user._id });
+        if (userId) {
+            // Concurrently delete all active sessions, increment tokenVersion atomically, and blacklist accessToken
+            const tasks = [
+                refreshTokenModel.deleteMany({ userId }),
+                userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } })
+            ];
 
-        // Increment tokenVersion of user
-        user.tokenVersion += 1;
-        await user.save();
+            if (accessToken && accessToken !== 'undefined') {
+                const hashAccessToken = secureHash(accessToken);
+                tasks.push(
+                    blacklistTokenModel.updateOne(
+                        { token: hashAccessToken },
+                        { $setOnInsert: { token: hashAccessToken, userId, createdAt: new Date() } },
+                        { upsert: true }
+                    )
+                );
+            }
 
+            await Promise.all(tasks);
+        }
+
+        return true;
     }
     catch (error) {
         throw error;
@@ -877,21 +908,34 @@ const getSessions = async (userId, currentRefreshToken) => {
 
 const revokeSession = async (userId, sessionId, currentRefreshToken) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+            throw new ApiError(400, 'Invalid session ID format.');
+        }
+
         const session = await refreshTokenModel.findOne({ _id: sessionId, userId });
         if (!session) {
             throw new ApiError(404, 'Session not found or already terminated.');
         }
 
+        const targetFamilyId = (session.familyId || session._id).toString();
         let isCurrent = false;
+
+        // Check if the session being revoked matches the current active session family
         if (currentRefreshToken && currentRefreshToken !== 'undefined') {
             const currentTokenHash = secureHash(currentRefreshToken);
-            if (session.token === currentTokenHash) {
+            const currentDoc = await refreshTokenModel.findOne({ token: currentTokenHash }).select('familyId').lean();
+            if (currentDoc) {
+                const currentFamilyId = (currentDoc.familyId || currentDoc._id).toString();
+                if (currentFamilyId === targetFamilyId) {
+                    isCurrent = true;
+                }
+            } else if (session.token === currentTokenHash) {
                 isCurrent = true;
             }
         }
 
-        const familyId = session.familyId || session._id;
-        await refreshTokenModel.deleteMany({ familyId });
+        // Delete all tokens belonging to this session family
+        await refreshTokenModel.deleteMany({ familyId: session.familyId || session._id });
 
         return { isCurrent };
     } catch (error) {

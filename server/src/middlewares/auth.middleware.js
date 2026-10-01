@@ -15,16 +15,16 @@ export const authenticate = async (req, res, next) => {
             throw new ApiError(401, 'Access Token Missing');
         }
 
+        // Verify JWT Signature and expiry
+        const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
+        let decoded = jwt.verify(accessToken, secret_key);
+
         // Check for access token hash in Blacklist
         const hashAccessToken = secureHash(accessToken);
         let isBlacklisted = await blacklistTokenModel.findOne({ token: hashAccessToken }).select({ token: 1, _id: 0 }).lean();
         if (isBlacklisted) {
             throw new ApiError(403, 'Session has been revoked. Please sign in again.');
         }
-
-        // Verify JWT Signature and expiry
-        const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
-        let decoded = jwt.verify(accessToken, secret_key);
 
         // Check token version in user and verify that token family / session is still active in parallel
         const [user_data, isSessionActive] = await Promise.all([

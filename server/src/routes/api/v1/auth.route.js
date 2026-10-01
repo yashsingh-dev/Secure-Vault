@@ -52,7 +52,6 @@ router.delete('/sessions/:sessionId',
 );
 
 router.get('/logout',
-    authenticate,
     Controller.logout
 );
 
