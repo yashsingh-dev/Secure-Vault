@@ -70,8 +70,8 @@ const login = async (email, password) => {
         }
 
         // Check 2FA
+        const now = Date.now();
         if (currentUser.settings.alwaysRequireOtp || !currentUser.isVerified) {
-            const now = Date.now();
 
             // 1. If cooldown is currently active, don't generate a new OTP or send another email.
             // Allow the user to proceed to the OTP verification screen for the existing code.
@@ -126,7 +126,6 @@ const login = async (email, password) => {
         }
 
         // Update Last Login atomically without overwriting any other fields or relying on in-memory .save()
-        const now = Date.now();
         await userModel.updateOne(
             { _id: currentUser._id },
             { $set: { lastLogin: now } }
@@ -153,6 +152,7 @@ const register = async (name, email, password) => {
         const hash_password = await createHash(password);
 
         // Generate OTP
+        const now = Date.now();
         const otp = generateOTP();
 
         // Create User
@@ -163,8 +163,8 @@ const register = async (name, email, password) => {
                 email,
                 password: hash_password,
                 otp,
-                otpExpiry: Date.now() + CONSTANTS.OTP.EXPIRY_MS,
-                otpCoolDown: Date.now() + CONSTANTS.OTP.COOL_DOWN_MS,
+                otpExpiry: now + CONSTANTS.OTP.EXPIRY_MS,
+                otpCoolDown: now + CONSTANTS.OTP.COOL_DOWN_MS,
                 otpAttempts: 0
             });
         } catch (dbError) {
@@ -214,6 +214,7 @@ const googleAuth = async (code) => {
         });
 
         const userData = await ticket.getPayload();
+        const now = Date.now();
 
         // Find user or create user
         let user = await userModel.findOne({ email: userData.email });
@@ -302,7 +303,6 @@ const googleAuth = async (code) => {
 
         // Check 2FA
         if (currentUser.settings.alwaysRequireOtp || !currentUser.isVerified) {
-            const now = Date.now();
 
             // 1. If cooldown is currently active, don't generate a new OTP or send another email.
             if (currentUser.otpCoolDown && currentUser.otpCoolDown > now && currentUser.otpExpiry > now) {
@@ -367,7 +367,6 @@ const googleAuth = async (code) => {
         }
 
         // Update Last Login atomically without relying on in-memory .save()
-        const now = Date.now();
         await userModel.updateOne(
             { _id: currentUser._id },
             { $set: { lastLogin: now } }
@@ -606,13 +605,44 @@ const resetPassword = async (email, password, token) => {
 const verifyOTP = async (email, otp) => {
     try {
 
-        // ATOMIC CHECK & INCREMENT IN DATABASE:
-        // Only increment if otpAttempts is STRICTLY LESS THAN 5, and account is not blocked!
-        const user = await userModel.findOneAndUpdate(
+        const now = Date.now();
+
+        // 1. Check user existence and block status first to give accurate errors
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            throw new ApiError(404, 'No account found with this email address.');
+        }
+
+        if (user.isBlocked) {
+            if (user.blockExpiresAt > now) {
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
+            }
+
+            // Unblock atomically if block has expired
+            await userModel.updateOne(
+                { _id: user._id, isBlocked: true },
+                {
+                    $set: {
+                        isBlocked: false,
+                        blockReason: null,
+                        blockedAt: null,
+                        blockExpiresAt: null
+                    }
+                }
+            );
+            user.isBlocked = false;
+        }
+
+        // 2. Check if an active OTP was actually requested
+        if (!user.otp) {
+            throw new ApiError(400, 'No active verification code found. Please request a new one.');
+        }
+
+        // 3. Atomically claim attempt: only increment if otpAttempts < 5
+        const updatedUser = await userModel.findOneAndUpdate(
             {
-                email,
-                otpAttempts: { $lt: 5 },
-                $or: [{ isBlocked: false }, { blockExpiresAt: { $lt: Date.now() } }]
+                _id: user._id,
+                otpAttempts: { $lt: 5 }
             },
             {
                 $inc: { otpAttempts: 1 }
@@ -620,55 +650,62 @@ const verifyOTP = async (email, otp) => {
             { new: true }
         );
 
-        // If no document was matched, it means:
-        // - Either the user doesn't exist, OR
-        // - otpAttempts is ALREADY >= 5!
-        if (!user) {
-            // Find user to check if they are locked out
-            const existingUser = await userModel.findOne({ email });
-            if (!existingUser) {
-                throw new ApiError(409, 'No account found with this email address.');
-            }
-            // They hit 5 attempts or are blocked
+        // If updatedUser is null, user already hit the maximum 5 attempts
+        if (!updatedUser) {
             throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
         }
-        if (!user.otp) {
-            throw new ApiError(401, 'No verification code found. Please request a new one.');
-        }
 
-        // Check OTP
-        if (!user.otp || user.otp.toString() !== otp) {
-            // If it was the 5th attempt, clear the OTP and block the user for specific time
-            if (user.otpAttempts >= 5) {
-                user.otp = null;
-                user.otpExpiry = null;
-                user.otpCoolDown = null;
-
-                user.isBlocked = true;
-                user.blockReason = 'Too many failed OTP attempts';
-                user.blockedAt = Date.now();
-                user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
-                await user.save();
+        // 4. Check if the provided OTP matches
+        if (updatedUser.otp.toString() !== otp.toString()) {
+            // If this was the 5th failed attempt, block the user atomically
+            if (updatedUser.otpAttempts >= 5) {
+                await userModel.updateOne(
+                    { _id: updatedUser._id },
+                    {
+                        $set: {
+                            otp: null,
+                            otpExpiry: null,
+                            otpCoolDown: null,
+                            isBlocked: true,
+                            blockReason: 'Too many failed OTP attempts',
+                            blockedAt: now,
+                            blockExpiresAt: now + CONSTANTS.OTP.BLOCK_TIME_MS
+                        }
+                    }
+                );
             }
 
             throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
-        // Check OTP Expiry (Only if code was correct)
-        if (user.otpExpiry < Date.now()) {
+        // 5. Check OTP Expiry
+        if (updatedUser.otpExpiry < now) {
             throw new ApiError(401, 'This verification code has expired. Please request a new one.');
         }
 
-        // Verify OTP
-        user.isVerified = true;
-        user.otp = null;
-        user.otpExpiry = null;
-        user.otpCoolDown = null;
-        user.otpAttempts = 0;
-        user.lastLogin = Date.now();
-        await user.save();
+        // 6. Success: Atomically mark verified, clear OTP fields, and update lastLogin
+        await userModel.updateOne(
+            { _id: updatedUser._id },
+            {
+                $set: {
+                    isVerified: true,
+                    otp: null,
+                    otpExpiry: null,
+                    otpCoolDown: null,
+                    otpAttempts: 0,
+                    lastLogin: now
+                }
+            }
+        );
 
-        return { user };
+        updatedUser.isVerified = true;
+        updatedUser.otp = null;
+        updatedUser.otpExpiry = null;
+        updatedUser.otpCoolDown = null;
+        updatedUser.otpAttempts = 0;
+        updatedUser.lastLogin = now;
+
+        return { user: updatedUser };
 
     }
     catch (error) {
