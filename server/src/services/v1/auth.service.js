@@ -460,40 +460,91 @@ const sendOTP = async (email) => {
     try {
 
         // Check User
-        const user = await userModel.findOne({ email });
+        let user = await userModel.findOne({ email }).select({ isBlocked: 1, blockExpiresAt: 1, blockReason: 1, otpCoolDown: 1, otp: 1 }).lean();
         if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+            throw new ApiError(404, 'No account found with this email address.');
         }
+
+        const now = Date.now();
 
         // Check Account Blocked
         if (user.isBlocked) {
-            if (user.blockExpiresAt > Date.now()) {
+            if (user.blockExpiresAt > now) {
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
-            user.isBlocked = false;
-            user.blockReason = null;
-            user.blockedAt = null;
-            user.blockExpiresAt = null;
-            await user.save();
+
+            // Atomically unblock if still blocked
+            const unblockedUser = await userModel.findOneAndUpdate(
+                { _id: user._id, isBlocked: true },
+                {
+                    $set: {
+                        isBlocked: false,
+                        blockReason: null,
+                        blockedAt: null,
+                        blockExpiresAt: null
+                    }
+                },
+                { new: true }
+            );
+
+            if (unblockedUser) {
+                user = unblockedUser;
+            } else {
+                // Another concurrent request completed the unblock right before this one.
+                const freshUser = await userModel.findById(user._id);
+                if (freshUser) {
+                    user = freshUser;
+                    if (user.isBlocked && user.blockExpiresAt > now) {
+                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
+                    }
+                }
+            }
         }
 
-        // Check OTP Cool Down
-        if (user.otpCoolDown > Date.now()) {
-            throw new ApiError(400, 'Please wait before requesting another verification code.');
-        }
-
-        // Generate OTP
+        // Generate OTP parameters
         const otp = generateOTP();
-        user.otp = otp;
-        user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-        user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-        user.otpAttempts = 0;
-        await user.save();
+        const otpExpiry = now + CONSTANTS.OTP.EXPIRY_MS;
+        const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
-        // Send Email
-        await sendOTPEmail(user.email, otp);
+        // Atomically update user ONLY if cooldown is null or has expired
+        const updatedUser = await userModel.findOneAndUpdate(
+            {
+                _id: user._id,
+                $or: [
+                    { otpCoolDown: null },
+                    { otpCoolDown: { $lte: now } }
+                ]
+            },
+            {
+                $set: {
+                    otp,
+                    otpExpiry,
+                    otpCoolDown,
+                    otpAttempts: 0
+                }
+            },
+            { new: true }
+        );
 
-        return { user };
+        // If updatedUser is null, another concurrent request just requested an OTP milliseconds ago
+        if (!updatedUser) {
+            throw new ApiError(429, 'Please wait before requesting another verification code.');
+        }
+
+        // Send Email with rollback on failure
+        try {
+            const result = await sendOTPEmail(user.email, otp);
+            if (result && !result.success) throw new Error(result.error);
+        } catch (error) {
+            // Rollback OTP in DB so user isn't stuck with an unsent code
+            await userModel.updateOne(
+                { _id: user._id },
+                { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+            );
+            throw new ApiError(500, 'Unable to send verification code. Please try again.');
+        }
+
+        return { user: updatedUser };
     }
     catch (error) {
         throw error;
