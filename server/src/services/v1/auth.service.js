@@ -790,6 +790,7 @@ const refreshToken = async (oldRefreshToken) => {
             } else {
                 // If used AFTER 10 seconds, this is a REUSE ATTACK (stolen token)!
                 await refreshTokenModel.deleteMany({ familyId });
+                safeRedis.del(REDIS_KEYS.session(familyId.toString()));
                 throw new ApiError(403, 'Compromised token detected. Please sign in again.');
             }
         }

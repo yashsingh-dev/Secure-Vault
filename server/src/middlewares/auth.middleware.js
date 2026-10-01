@@ -52,22 +52,25 @@ export const authenticate = async (req, res, next) => {
         }
 
         // 3. Active Session Family Check (Redis -> MongoDB Fallback)
-        let isSessionActive = await safeRedis.exists(REDIS_KEYS.session(decoded.familyId));
-        if (!isSessionActive) {
-            // Fallback: Query MongoDB if Redis reported false/offline
-            const sessionDoc = await refreshTokenModel.exists({ familyId: decoded.familyId });
-            isSessionActive = Boolean(sessionDoc);
+        let isSessionActive = true;
+        if (decoded.familyId) {
+            isSessionActive = await safeRedis.exists(REDIS_KEYS.session(decoded.familyId));
+            if (!isSessionActive) {
+                // Fallback: Query MongoDB if Redis reported false/offline
+                const sessionDoc = await refreshTokenModel.exists({ familyId: decoded.familyId });
+                isSessionActive = Boolean(sessionDoc);
 
-            if (isSessionActive) {
-                // Self-heal Redis session cache with refresh token TTL
-                const sessionTtl = Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
-                safeRedis.set(REDIS_KEYS.session(decoded.familyId), '1', sessionTtl);
+                if (isSessionActive) {
+                    // Self-heal Redis session cache with refresh token TTL
+                    const sessionTtl = Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
+                    safeRedis.set(REDIS_KEYS.session(decoded.familyId), '1', sessionTtl);
+                }
             }
-        }
 
-        if (!isSessionActive) {
-            clearTokenCookies(res);
-            throw new ApiError(401, 'Session has been revoked. Please sign in again.');
+            if (!isSessionActive) {
+                clearTokenCookies(res);
+                throw new ApiError(401, 'Session has been revoked. Please sign in again.');
+            }
         }
 
         req.user = decoded._id;
