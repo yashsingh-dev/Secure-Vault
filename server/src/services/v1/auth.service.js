@@ -398,7 +398,7 @@ const logout = async (accessToken, refreshToken) => {
                 if (tokenDoc) {
                     userId = tokenDoc.userId;
                     const familyId = tokenDoc.familyId || tokenDoc._id;
-                    
+
                     // MongoDB deletion (source of truth)
                     await refreshTokenModel.deleteMany({ familyId });
 
@@ -414,23 +414,12 @@ const logout = async (accessToken, refreshToken) => {
             }
         }
 
-        // 2. Blacklist Access Token in Redis if provided
+        // 2. Blacklist Access Token in Redis if provided (Fixed 10 minutes TTL)
         if (accessToken && accessToken !== 'undefined') {
             try {
-                const decoded = jwt.decode(accessToken);
-                const currentTime = Math.floor(Date.now() / 1000);
-                const remainingTtl = (decoded && decoded.exp) 
-                    ? (decoded.exp - currentTime) 
-                    : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-
-                if (remainingTtl > 0) {
-                    const hashedAccessToken = secureHash(accessToken);
-                    try {
-                        await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', remainingTtl);
-                    } catch (redisErr) {
-                        console.error('[Redis Blacklist Write Error]:', redisErr.message);
-                    }
-                }
+                const hashedAccessToken = secureHash(accessToken);
+                const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+                await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', ttl);
             } catch (err) {
                 console.error('[Logout Blacklist Token Error]:', err.message);
             }
@@ -447,53 +436,41 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) 
     try {
         let userId = authenticatedUserId;
 
-        // 1. Identify User from refreshToken if not passed from req.user
-        if (!userId && refreshToken && refreshToken !== 'undefined') {
-            try {
-                const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-                const decoded = jwt.verify(refreshToken, secret_key);
-                userId = decoded._id;
-            } catch (err) {
-                const decoded = jwt.decode(refreshToken);
-                if (decoded && decoded._id) userId = decoded._id;
+        // 1. Fetch user's active session family IDs before deleting to clean up Redis session keys
+        let sessionKeys = [];
+        try {
+            const activeSessions = await refreshTokenModel.find({ userId }).select({ familyId: 1 }).lean();
+            sessionKeys = activeSessions
+                .map(s => s.familyId ? REDIS_KEYS.session(s.familyId.toString()) : null)
+                .filter(Boolean);
+        } catch (err) {
+            console.error('[LogoutAll Fetch Sessions Warning]:', err.message);
+        }
+
+        // 2. Database Operations (Concurrent Execution)
+        await Promise.all([
+            refreshTokenModel.deleteMany({ userId }),
+            userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } })
+        ]);
+
+        // 3. Redis Cache Invalidation (Batch delete tokenVersion and all active sessions)
+        try {
+            const keysToDelete = [REDIS_KEYS.userTokenVersion(userId.toString()), ...sessionKeys];
+            if (keysToDelete.length > 0) {
+                await redis.del(...keysToDelete);
             }
+        } catch (redisErr) {
+            console.error('[LogoutAll Redis Invalidation Error]:', redisErr.message);
         }
 
-        // 2. Identify from accessToken if still needed
-        if (!userId && accessToken && accessToken !== 'undefined') {
-            const decoded = jwt.decode(accessToken);
-            if (decoded && decoded._id) userId = decoded._id;
-        }
-
-        if (userId) {
-            // 1. Database Operations (Source of Truth)
-            await refreshTokenModel.deleteMany({ userId });
-            await userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
-
-            // 2. Redis Cache Invalidation (Wrapped in try/catch)
+        // 4. Blacklist current access token if present (Fixed 10 minutes TTL)
+        if (accessToken && accessToken !== 'undefined') {
             try {
-                // Invalidate cached tokenVersion in Redis
-                await redis.del(REDIS_KEYS.userTokenVersion(userId.toString()));
+                const hashAccessToken = secureHash(accessToken);
+                const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+                await redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', ttl);
             } catch (redisErr) {
-                console.error('[LogoutAll Redis TokenVersion Invalidation Error]:', redisErr.message);
-            }
-
-            // 3. Blacklist current access token if present
-            if (accessToken && accessToken !== 'undefined') {
-                try {
-                    const decoded = jwt.decode(accessToken);
-                    const currentTime = Math.floor(Date.now() / 1000);
-                    const remainingTtl = (decoded && decoded.exp) 
-                        ? (decoded.exp - currentTime) 
-                        : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-
-                    if (remainingTtl > 0) {
-                        const hashAccessToken = secureHash(accessToken);
-                        await redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', remainingTtl);
-                    }
-                } catch (redisErr) {
-                    console.error('[LogoutAll Redis Blacklist Error]:', redisErr.message);
-                }
+                console.error('[LogoutAll Redis Blacklist Error]:', redisErr.message);
             }
         }
 

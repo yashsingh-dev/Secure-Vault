@@ -19,6 +19,15 @@ export const generateAccessToken = async function (userId, tokenVersion, familyI
 
         console.log(`Access Token generated for ${CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN}`);
 
+        // Proactively pre-warm tokenVersion in Redis so the first auth request hits cache immediately
+        if (tokenVersion !== undefined && tokenVersion !== null) {
+            try {
+                await redis.set(REDIS_KEYS.userTokenVersion(userId.toString()), tokenVersion.toString());
+            } catch (redisErr) {
+                console.error('[Redis Pre-warm TokenVersion Warning]:', redisErr.message);
+            }
+        }
+
         return access_token;
     } catch (error) {
         throw error;

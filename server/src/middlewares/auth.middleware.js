@@ -54,9 +54,9 @@ export const authenticate = async (req, res, next) => {
             }
             activeTokenVersion = userData.tokenVersion;
 
-            // Self-heal Redis cache with 24h TTL
+            // Self-heal Redis cache
             try {
-                await redis.set(REDIS_KEYS.userTokenVersion(decoded._id), activeTokenVersion.toString(), 'EX', 86400);
+                await redis.set(REDIS_KEYS.userTokenVersion(decoded._id), activeTokenVersion.toString());
             } catch (cacheWriteErr) {
                 console.error('[Redis TokenVersion Write Warning]: Failed to populate cache:', cacheWriteErr.message);
             }
@@ -85,10 +85,10 @@ export const authenticate = async (req, res, next) => {
             isSessionActive = Boolean(sessionDoc);
 
             if (isSessionActive) {
-                // Self-heal Redis cache with refresh token TTL (default 1 day)
+                // Self-heal Redis cache with refresh token TTL
                 try {
                     const sessionTtl = Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
-                    await redis.set(REDIS_KEYS.session(decoded.familyId), '1', 'EX', sessionTtl);
+                    await redis.set(REDIS_KEYS.session(decoded.familyId), '1', 'EX', sessionTtl); 
                 } catch (cacheWriteErr) {
                     console.error('[Redis Session Write Warning]: Failed to populate cache:', cacheWriteErr.message);
                 }
