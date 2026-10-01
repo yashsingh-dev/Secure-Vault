@@ -195,7 +195,17 @@ const register = async (name, email, password) => {
 const googleAuth = async (code) => {
     try {
 
-        const { tokens } = await googleClient.getToken(code);
+        let tokens;
+        try {
+            const response = await googleClient.getToken(code);
+            tokens = response.tokens;
+        } catch (oauthError) {
+            const errorDesc = oauthError?.response?.data?.error_description || oauthError?.message || '';
+            if (oauthError?.response?.data?.error === 'invalid_grant' || errorDesc.includes('already redeemed') || errorDesc.includes('invalid_grant')) {
+                throw new ApiError(400, 'This Google sign-in request has already been processed or expired. Please refresh the page.');
+            }
+            throw new ApiError(400, 'Failed to authenticate with Google. Please try signing in again.');
+        }
 
         // Local verification: No network request needed!
         const ticket = await googleClient.verifyIdToken({
@@ -212,72 +222,160 @@ const googleAuth = async (code) => {
             // Generate OTP
             const otp = generateOTP();
 
-            // Create User
-            const new_user = await userModel.create({
-                name: userData.name,
-                email: userData.email,
-                otp,
-                otpExpiry: Date.now() + CONSTANTS.OTP.EXPIRY_MS,
-                otpCoolDown: Date.now() + CONSTANTS.OTP.COOL_DOWN_MS,
-                otpAttempts: 0,
-                googleLogin: true
-            });
-
-            // Send Email
+            // Create User with duplicate key error safety
+            let new_user;
             try {
-                const result = await sendOTPEmail(new_user.email, otp);
-                if (!result.success) throw new Error(result.error);
-            } catch (error) {
-                // Delete user if email fails to prevent deadlock (cleanup)
-                await userModel.findByIdAndDelete(new_user._id);
-                throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
+                new_user = await userModel.create({
+                    name: userData.name,
+                    email: userData.email,
+                    otp,
+                    otpExpiry: Date.now() + CONSTANTS.OTP.EXPIRY_MS,
+                    otpCoolDown: Date.now() + CONSTANTS.OTP.COOL_DOWN_MS,
+                    otpAttempts: 0,
+                    googleLogin: true
+                });
+            } catch (dbError) {
+                if (dbError.code === 11000) {
+                    // Account was created concurrently, fetch it
+                    user = await userModel.findOne({ email: userData.email });
+                    if (!user) {
+                        throw new ApiError(409, 'An account with this email already exists.');
+                    }
+                } else {
+                    throw dbError;
+                }
             }
 
-            return {
-                user: new_user,
-                is2FAEnabled: true,
-                rememberMe: true
-            };
+            if (new_user) {
+                // Send Email
+                try {
+                    const result = await sendOTPEmail(new_user.email, otp);
+                    if (!result.success) throw new Error(result.error);
+                } catch (error) {
+                    // Delete user if email fails to prevent deadlock (cleanup)
+                    await userModel.findByIdAndDelete(new_user._id);
+                    throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
+                }
+
+                return {
+                    user: new_user,
+                    is2FAEnabled: true,
+                    rememberMe: true
+                };
+            }
         }
 
         // Check Account Blocked
-        if (user.isBlocked) {
-            if (user.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
+        let currentUser = user;
+        if (currentUser.isBlocked) {
+            if (currentUser.blockExpiresAt > Date.now()) {
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
             }
-            user.isBlocked = false;
-            user.blockReason = null;
-            user.blockedAt = null;
-            user.blockExpiresAt = null;
-            await user.save();
+
+            // Atomically unblock ONLY if isBlocked is still true in the database
+            const unblockedUser = await userModel.findOneAndUpdate(
+                { _id: currentUser._id, isBlocked: true },
+                {
+                    $set: {
+                        isBlocked: false,
+                        blockReason: null,
+                        blockedAt: null,
+                        blockExpiresAt: null
+                    }
+                },
+                { new: true }
+            );
+
+            if (unblockedUser) {
+                currentUser = unblockedUser;
+            } else {
+                // Another concurrent request completed the unblock right before this one.
+                const freshUser = await userModel.findById(currentUser._id);
+                if (freshUser) {
+                    currentUser = freshUser;
+                    if (currentUser.isBlocked && currentUser.blockExpiresAt > Date.now()) {
+                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
+                    }
+                }
+            }
         }
 
-        if (user.settings.alwaysRequireOtp || !user.isVerified) {
+        // Check 2FA
+        if (currentUser.settings.alwaysRequireOtp || !currentUser.isVerified) {
+            const now = Date.now();
 
-            // Generate OTP
+            // 1. If cooldown is currently active, don't generate a new OTP or send another email.
+            if (currentUser.otpCoolDown && currentUser.otpCoolDown > now && currentUser.otpExpiry > now) {
+                return {
+                    user: currentUser,
+                    is2FAEnabled: true,
+                    rememberMe: false
+                };
+            }
+
+            // 2. Generate new OTP parameters
             const otp = generateOTP();
-            user.otp = otp;
-            user.otpExpiry = Date.now() + CONSTANTS.OTP.EXPIRY_MS;
-            user.otpCoolDown = Date.now() + CONSTANTS.OTP.COOL_DOWN_MS;
-            user.otpAttempts = 0;
-            await user.save();
+            const otpExpiry = now + CONSTANTS.OTP.EXPIRY_MS;
+            const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
-            // Send Email
-            const result = await sendOTPEmail(user.email, otp);
-            if (!result.success) throw new Error(result.error);
+            // 3. Atomically update the database only if cooldown is expired
+            const updatedUser = await userModel.findOneAndUpdate(
+                {
+                    _id: currentUser._id,
+                    $or: [
+                        { otpCoolDown: null },
+                        { otpCoolDown: { $lte: now } }
+                    ]
+                },
+                {
+                    $set: {
+                        otp,
+                        otpExpiry,
+                        otpCoolDown,
+                        otpAttempts: 0
+                    }
+                },
+                { new: true }
+            );
+
+            // If another concurrent request just updated the OTP milliseconds ago
+            if (!updatedUser) {
+                return {
+                    user: currentUser,
+                    is2FAEnabled: true,
+                    rememberMe: false
+                };
+            }
+
+            // 4. Send email; if sending fails, roll back the OTP in DB
+            try {
+                const result = await sendOTPEmail(currentUser.email, otp);
+                if (!result.success) throw new Error(result.error);
+            } catch (error) {
+                await userModel.updateOne(
+                    { _id: currentUser._id },
+                    { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                );
+                throw new ApiError(500, 'Unable to send verification code. Please try again.');
+            }
 
             return {
-                user: user,
+                user: updatedUser,
                 is2FAEnabled: true,
                 rememberMe: false
             };
         }
 
-        user.lastLogin = Date.now();
-        await user.save();
+        // Update Last Login atomically without relying on in-memory .save()
+        const now = Date.now();
+        await userModel.updateOne(
+            { _id: currentUser._id },
+            { $set: { lastLogin: now } }
+        );
+        currentUser.lastLogin = now;
 
         return {
-            user: user,
+            user: currentUser,
             is2FAEnabled: false,
             rememberMe: true
         };

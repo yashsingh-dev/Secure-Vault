@@ -31,7 +31,6 @@
 ---
 
 ## 3. Registration Rollback Race & Asynchronous OTP Queue (Redis / BullMQ)
-- **Location**: [`server/src/services/v1/auth.service.js:159-188`](file:///Users/apple/Developer/My%20Code/Projects/Secure%20Vault/server/src/services/v1/auth.service.js#L159-L188)
 - **Problem & Front-End Impact**:
   Currently, user creation and email dispatch are executed synchronously within the same request lifecycle. If email sending fails or is delayed by SMTP timeouts, rolling back via `findByIdAndDelete` leaves a vulnerable race window where subsequent retry requests can be falsely told that the account already exists (`409 Conflict`), only for that account to vanish milliseconds later when the deletion completes.
 - **Planned Solution**:
