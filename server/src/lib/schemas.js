@@ -42,6 +42,10 @@ export const updateProfileSchema = z.object({
     alwaysRequireOtp: z.boolean().optional()
 });
 
+export const googleAuthSchema = z.object({
+    code: z.string({ required_error: 'Google authorization code is required.' }).min(1, 'Google authorization code cannot be empty.')
+});
+
 export const schemas = {
     emailSchema,
     passwordSchema,
@@ -52,7 +56,8 @@ export const schemas = {
     registerSchema,
     otpSchema,
     otpForResetSchema,
-    updateProfileSchema
+    updateProfileSchema,
+    googleAuthSchema
 };
 
 export default schemas;

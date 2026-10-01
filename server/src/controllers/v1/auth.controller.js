@@ -91,6 +91,12 @@ const googleAuth = async (req, res, next) => {
             throw new ApiError(400, 'Google authorization code is required.');
         }
 
+        // Validate Input with Zod
+        const { success, error } = zod.googleAuthSchema.safeParse(req.body);
+        if (!success) {
+            throw new ApiError(400, error.issues?.[0]?.message || error.message);
+        }
+
         const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
 
         if (!is2FAEnabled) {

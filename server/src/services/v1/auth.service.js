@@ -270,7 +270,7 @@ const googleAuth = async (code) => {
         // Check Account Blocked
         let currentUser = user;
         if (currentUser.isBlocked) {
-            if (currentUser.blockExpiresAt > Date.now()) {
+            if (currentUser.blockExpiresAt > now) {
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
             }
 
@@ -295,7 +295,7 @@ const googleAuth = async (code) => {
                 const freshUser = await userModel.findById(currentUser._id);
                 if (freshUser) {
                     currentUser = freshUser;
-                    if (currentUser.isBlocked && currentUser.blockExpiresAt > Date.now()) {
+                    if (currentUser.isBlocked && currentUser.blockExpiresAt > now) {
                         throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
                     }
                 }
