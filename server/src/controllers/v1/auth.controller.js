@@ -6,24 +6,13 @@ import response from '../../utils/response.utils.js';
 import { CONSTANTS } from '../../config/constants.js';
 import authService from '../../services/v1/auth.service.js';
 import userService from '../../services/v1/user.service.js';
-import zod from '../../lib/schemas.js';
 import { parseClientMeta } from '../../utils/device.utils.js';
 import userModel from '../../models/user.model.js';
 
 
 const login = async (req, res, next) => {
     try {
-        const { email, password, rememberMe = false } = req.body;
-
-        if (!email || !password) {
-            throw new ApiError(400, 'Please provide both your email and password.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.loginSchema.safeParse(req.body);
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
+        const { email, password, rememberMe } = req.body;
 
         const { user, is2FAEnabled } = await authService.login(email, password);
 
@@ -59,16 +48,6 @@ const register = async (req, res, next) => {
     try {
         const { name, email, password } = req.body;
 
-        if (!name || !email || !password) {
-            throw new ApiError(400, 'Name, email, and password are required.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.registerSchema.safeParse(req.body);
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
-
         const { user } = await authService.register(name, email, password);
 
         // Send Response
@@ -86,16 +65,6 @@ const register = async (req, res, next) => {
 const googleAuth = async (req, res, next) => {
     try {
         const { code } = req.body;
-
-        if (!code) {
-            throw new ApiError(400, 'Google authorization code is required.');
-        }
-
-        // Validate Input with Zod
-        const { success, error } = zod.googleAuthSchema.safeParse(req.body);
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
 
         const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
 
@@ -130,16 +99,6 @@ const resetPassword = async (req, res, next) => {
     try {
         const { email, password, token } = req.body;
 
-        if (!email || !password || !token) {
-            throw new ApiError(400, 'Email, new password, and reset token are required.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.resetPasswordSchema.safeParse(req.body);
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
-
         const { user } = await authService.resetPassword(email, password, token);
 
         // Send Response
@@ -157,16 +116,6 @@ const sendOTP = async (req, res, next) => {
     try {
         const { email } = req.body;
 
-        if (!email) {
-            throw new ApiError(400, 'Please provide your email address.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.emailSchema.safeParse(email);
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
-
         const { user } = await authService.sendOTP(email);
 
         // Send Response
@@ -182,17 +131,7 @@ const sendOTP = async (req, res, next) => {
 
 const verifyOTP = async (req, res, next) => {
     try {
-        const { email, otp, rememberMe = false } = req.body;
-
-        if (!email || !otp) {
-            throw new ApiError(400, 'Email and verification code are required.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.otpSchema.safeParse({ email, otp, rememberMe });
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
+        const { email, otp, rememberMe } = req.body;
 
         const { user } = await authService.verifyOTP(email, otp);
 
@@ -223,16 +162,6 @@ const verifyOTP = async (req, res, next) => {
 const verifyOtpForReset = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
-
-        if (!email || !otp) {
-            throw new ApiError(400, 'Email and verification code are required.');
-        }
-
-        // Validate Input
-        const { success, error } = zod.otpForResetSchema.safeParse({ email, otp });
-        if (!success) {
-            throw new ApiError(400, error.issues?.[0]?.message || error.message);
-        }
 
         const { user } = await authService.verifyOTP(email, otp);
 
