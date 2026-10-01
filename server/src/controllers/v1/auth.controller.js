@@ -8,6 +8,7 @@ import authService from '../../services/v1/auth.service.js';
 import userService from '../../services/v1/user.service.js';
 import zod from '../../lib/schemas.js';
 import { parseClientMeta } from '../../utils/device.utils.js';
+import userModel from '../../models/user.model.js';
 
 
 const login = async (req, res, next) => {
@@ -227,12 +228,14 @@ const verifyOtpForReset = async (req, res, next) => {
             throw new ApiError(400, error.issues?.[0]?.message || error.message);
         }
 
-        const { user } = await authService.verifyOtpForReset(email, otp);
+        const { user } = await authService.verifyOTP(email, otp);
 
         // Generate Reset Token
         const token = await generateResetToken(user._id);
-        user.resetToken = token;
-        await user.save();
+        await userModel.updateOne(
+            { _id: user._id },
+            { $set: { resetToken: token } }
+        );
 
         // Send Response
         return response(res, 200, 'Verification code verified successfully.', {
@@ -322,21 +325,25 @@ const refreshAccessToken = async (req, res, next) => {
             throw new ApiError(401, 'Session expired or invalid. Please sign in again.');
         }
 
-        const { user, rememberMe, isGracePeriod, familyId } = await authService.refreshToken(oldRefreshToken);
+        const { user, rememberMe, isGracePeriod = false, familyId } = await authService.refreshToken(oldRefreshToken);
 
         if (!isGracePeriod) {
 
-            // Generate new access and refresh token
-            const newAccessToken = await generateAccessToken(user._id, user.tokenVersion, familyId);
+            // Parse Client Meta
             const clientMeta = parseClientMeta(req);
-            const newRefreshToken = await generateRefreshToken(user._id, rememberMe, clientMeta, familyId);
+
+            // Generate new access and refresh token
+            const [newAccessToken, newRefreshToken] = await Promise.all([
+                generateAccessToken(user._id, user.tokenVersion, familyId),
+                generateRefreshToken(user._id, rememberMe, clientMeta, familyId)
+            ]);
 
             // Set Cookie
-            await setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
-            await setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+            setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
+            setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
         }
 
-        // Send Response
+        // Send Response (Grace period requests return 201 so frontend interceptor proceeds with already-set cookies)
         return response(res, 201, 'Session renewed successfully.');
     }
     catch (error) {

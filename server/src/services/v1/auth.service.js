@@ -553,49 +553,81 @@ const sendOTP = async (email) => {
 const resetPassword = async (email, password, token) => {
     try {
 
-        // Check User
-        const user = await userModel.findOne({ email });
+        const now = Date.now();
+
+        // 1. Check User
+        let user = await userModel.findOne({ email });
         if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+            throw new ApiError(404, 'No account found with this email address.');
         }
 
-        // Check if Google Auth
+        // 2. Check if Google Auth
         if (user.googleLogin) {
             throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
-        // Check Account Blocked
+        // 3. Check Account Blocked
         if (user.isBlocked) {
-            if (user.blockExpiresAt > Date.now()) {
+            if (user.blockExpiresAt > now) {
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
+
+            // Unblock atomically if expired
+            await userModel.updateOne(
+                { _id: user._id, isBlocked: true },
+                {
+                    $set: {
+                        isBlocked: false,
+                        blockReason: null,
+                        blockedAt: null,
+                        blockExpiresAt: null
+                    }
+                }
+            );
             user.isBlocked = false;
-            user.blockReason = null;
-            user.blockedAt = null;
-            user.blockExpiresAt = null;
-            await user.save();
         }
 
-        // Check for token
+        // 4. Check for token existence and match
         if (!user.resetToken || user.resetToken !== token) {
             throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
-        // Verify Token
+        // 5. Verify Token Cryptographically
         const secret_key = process.env.JWT_RESET_KEY || 'default-key';
         const decoded = jwt.verify(token, secret_key);
         if (decoded._id !== user._id.toString()) {
             throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
-        // Encyrpt Password
+        // 6. Encrypt Password
         const hash_password = await createHash(password);
-        user.password = hash_password;
-        user.tokenVersion += 1;
-        user.resetToken = null;
-        await user.save();
 
-        return { user };
+        // 7. Atomic "Claim & Burn" Update:
+        // Only succeeds if resetToken is STILL exactly equal to the token!
+        // This guarantees strict single-use even if concurrent requests arrive.
+        const updatedUser = await userModel.findOneAndUpdate(
+            {
+                _id: user._id,
+                resetToken: token
+            },
+            {
+                $set: {
+                    password: hash_password,
+                    resetToken: null
+                },
+                $inc: { tokenVersion: 1 }
+            },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            throw new ApiError(401, 'This password reset link has already been used or expired.');
+        }
+
+        // 8. Revoke all active refresh token sessions for this user
+        await refreshTokenModel.deleteMany({ userId: user._id });
+
+        return { user: updatedUser };
     }
     catch (error) {
         throw error;
@@ -713,121 +745,65 @@ const verifyOTP = async (email, otp) => {
     }
 }
 
-const verifyOtpForReset = async (email, otp) => {
-    try {
-
-        // ATOMIC CHECK & INCREMENT IN DATABASE:
-        // Only increment if otpAttempts is STRICTLY LESS THAN 5, and account is not blocked!
-        const user = await userModel.findOneAndUpdate(
-            {
-                email,
-                otpAttempts: { $lt: 5 },
-                $or: [{ isBlocked: false }, { blockExpiresAt: { $lt: Date.now() } }]
-            },
-            {
-                $inc: { otpAttempts: 1 }
-            },
-            { new: true }
-        );
-
-        if (!user) {
-            const existingUser = await userModel.findOne({ email });
-            if (!existingUser) {
-                throw new ApiError(409, 'No account found with this email address.');
-            }
-            throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
-        }
-
-        if (!user.otp) {
-            throw new ApiError(401, 'No verification code found. Please request a new one.');
-        }
-
-        // Check OTP
-        if (!user.otp || user.otp.toString() !== otp) {
-            // If it was the 5th attempt, clear the OTP and block the user for specific time
-            if (user.otpAttempts >= 5) {
-                user.otp = null;
-                user.otpExpiry = null;
-                user.otpCoolDown = null;
-                user.isBlocked = true;
-                user.blockReason = 'Too many failed OTP attempts';
-                user.blockedAt = Date.now();
-                user.blockExpiresAt = Date.now() + CONSTANTS.OTP.BLOCK_TIME_MS;
-                await user.save();
-            }
-
-            throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
-        }
-
-        // Check OTP Expiry (Only if code was correct)
-        if (user.otpExpiry < Date.now()) {
-            throw new ApiError(401, 'This verification code has expired. Please request a new one.');
-        }
-
-        // Verify OTP
-        user.otp = null;
-        user.otpExpiry = null;
-        user.otpCoolDown = null;
-        user.otpAttempts = 0;
-        await user.save();
-
-        return { user };
-
-    }
-    catch (error) {
-        throw error;
-    }
-}
-
 const refreshToken = async (oldRefreshToken) => {
     try {
 
-        // Create refreshToken hash and check if it exists in DB
+        const now = Date.now();
+        const GRACE_PERIOD_MS = 10 * 1000; // 10 seconds grace period
+
+        // 1. Verify refresh token cryptographic validity first
+        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
+        const decoded = jwt.verify(oldRefreshToken, secret_key);
+
+        // Determine rememberMe based on the refresh token's age and expiry
+        const SECONDS_IN_DAY = 24 * 60 * 60;
+        const rememberMe = (decoded.exp - decoded.iat > SECONDS_IN_DAY);
+
+        // 2. Hash refresh token and check if it exists in DB
         const hashRefreshToken = secureHash(oldRefreshToken);
         const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken });
         if (!tokenDoc) {
             throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
+        // 3. Verify User exists
+        const user = await userModel.findById(tokenDoc.userId);
+        if (!user) {
+            throw new ApiError(404, 'No account found with this email address.');
+        }
+
         const familyId = tokenDoc.familyId;
 
-        // CHECK GRACE PERIOD: Has this token already been rotated?
+        // 4. CHECK GRACE PERIOD: Has this token already been rotated?
         if (tokenDoc.isRotated) {
-            const GRACE_PERIOD_MS = 10 * 1000; // 10 seconds grace period
-            const timeSinceRotation = Date.now() - new Date(tokenDoc.rotatedAt).getTime();
+            const timeSinceRotation = now - new Date(tokenDoc.rotatedAt).getTime();
             if (timeSinceRotation <= GRACE_PERIOD_MS) {
                 // Allowed! A concurrent request arrived right after rotation.
-                // Fetch the user and return without creating a loop.
-                const user = await userModel.findById(tokenDoc.userId);
-                if (!user) throw new ApiError(409, 'No account found with this email address.');
-
-                return { user, rememberMe: true, isGracePeriod: true, familyId };
-            }
-            else {
+                return { user, rememberMe, isGracePeriod: true, familyId };
+            } else {
                 // If used AFTER 10 seconds, this is a REUSE ATTACK (stolen token)!
-                // Security measure: Invalidate ONLY this compromised token family!
                 await refreshTokenModel.deleteMany({ familyId });
                 throw new ApiError(403, 'Compromised token detected. Please sign in again.');
             }
-
         }
 
-        // First time rotation: Mark it as rotated instead of deleting immediately!
-        tokenDoc.isRotated = true;
-        tokenDoc.rotatedAt = Date.now();
-        await tokenDoc.save();
+        // 5. ATOMIC ROTATION:
+        // Try to atomically claim rotation ONLY if isRotated is still false in DB!
+        const rotatedTokenDoc = await refreshTokenModel.findOneAndUpdate(
+            { _id: tokenDoc._id, isRotated: false },
+            {
+                $set: {
+                    isRotated: true,
+                    rotatedAt: now
+                }
+            },
+            { new: true }
+        );
 
-        // Verify refresh token and expiry using its secret key
-        const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
-        const decoded = jwt.verify(oldRefreshToken, secret_key);
-
-        // Determine rememberMe based on the refresh token's age and expiry
-        const SECONDS_IN_DAY = 24 * 60 * 60;
-        let rememberMe = (decoded.exp - decoded.iat > SECONDS_IN_DAY);
-
-        const user = await userModel.findById(decoded._id);
-        if (!user) {
-            throw new ApiError(409, 'No account found with this email address.');
+        // If rotatedTokenDoc is null, another concurrent request rotated it in that exact millisecond!
+        // We gracefully treat this request as within the grace period.
+        if (!rotatedTokenDoc) {
+            return { user, rememberMe, isGracePeriod: true, familyId };
         }
 
         return { user, rememberMe, isGracePeriod: false, familyId };
@@ -932,7 +908,6 @@ export default {
     sendOTP,
     resetPassword,
     verifyOTP,
-    verifyOtpForReset,
     refreshToken,
     getSessions,
     revokeSession
