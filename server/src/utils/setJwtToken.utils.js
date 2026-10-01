@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { CONSTANTS } from '../config/constants.js';
 import refreshTokenModel from '../models/refreshToken.model.js';
 import secureHash from './crypto.utils.js';
-import redis from '../db/redis.js';
+import { safeRedis } from '../db/redis.js';
 import REDIS_KEYS from '../config/redisKeys.js';
 
 export const generateAccessToken = async function (userId, tokenVersion, familyId = null) {
@@ -19,14 +19,8 @@ export const generateAccessToken = async function (userId, tokenVersion, familyI
 
         console.log(`Access Token generated for ${CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN}`);
 
-        // Proactively pre-warm tokenVersion in Redis so the first auth request hits cache immediately
-        if (tokenVersion !== undefined && tokenVersion !== null) {
-            try {
-                await redis.set(REDIS_KEYS.userTokenVersion(userId.toString()), tokenVersion.toString());
-            } catch (redisErr) {
-                console.error('[Redis Pre-warm TokenVersion Warning]:', redisErr.message);
-            }
-        }
+        // Pre-warm tokenVersion in Redis
+        safeRedis.set(REDIS_KEYS.userTokenVersion(userId.toString()), tokenVersion);
 
         return access_token;
     } catch (error) {
@@ -63,14 +57,10 @@ export const generateRefreshToken = async function (userId, rememberMe = false, 
         });
 
         // Cache active session in Redis with TTL matching refresh token lifespan
-        try {
-            const ttlSeconds = Math.floor(
-                (rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS) / 1000
-            );
-            await redis.set(REDIS_KEYS.session(tokenFamilyId.toString()), '1', 'EX', ttlSeconds);
-        } catch (cacheErr) {
-            console.error('Redis session cache error:', cacheErr.message);
-        }
+        const ttlSeconds = Math.floor(
+            (rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS) / 1000
+        );
+        safeRedis.set(REDIS_KEYS.session(tokenFamilyId.toString()), '1', ttlSeconds);
 
         return refresh_token;
     } catch (error) {

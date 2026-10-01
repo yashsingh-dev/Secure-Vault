@@ -9,7 +9,7 @@ import generateOTP from "../../utils/otp.utils.js";
 import sendOTPEmail from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { formatTimeRemaining } from "../../lib/time.js";
-import redis from "../../db/redis.js";
+import { safeRedis } from "../../db/redis.js";
 import REDIS_KEYS from "../../config/redisKeys.js";
 import { parseUserAgent } from "../../utils/device.utils.js";
 import mongoose from "mongoose";
@@ -399,15 +399,8 @@ const logout = async (accessToken, refreshToken) => {
                     userId = tokenDoc.userId;
                     const familyId = tokenDoc.familyId || tokenDoc._id;
 
-                    // MongoDB deletion (source of truth)
                     await refreshTokenModel.deleteMany({ familyId });
-
-                    // Redis session invalidation
-                    try {
-                        await redis.del(REDIS_KEYS.session(familyId.toString()));
-                    } catch (redisErr) {
-                        console.error('[Redis Session Delete Error]:', redisErr.message);
-                    }
+                    safeRedis.del(REDIS_KEYS.session(familyId.toString()));
                 }
             } catch (err) {
                 console.error('[Logout Session Revoke Error]:', err.message);
@@ -416,13 +409,9 @@ const logout = async (accessToken, refreshToken) => {
 
         // 2. Blacklist Access Token in Redis if provided (Fixed 10 minutes TTL)
         if (accessToken && accessToken !== 'undefined') {
-            try {
-                const hashedAccessToken = secureHash(accessToken);
-                const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-                await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', ttl);
-            } catch (err) {
-                console.error('[Logout Blacklist Token Error]:', err.message);
-            }
+            const hashedAccessToken = secureHash(accessToken);
+            const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+            safeRedis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', ttl);
         }
 
         return true;
@@ -454,24 +443,13 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) 
         ]);
 
         // 3. Redis Cache Invalidation (Batch delete tokenVersion and all active sessions)
-        try {
-            const keysToDelete = [REDIS_KEYS.userTokenVersion(userId.toString()), ...sessionKeys];
-            if (keysToDelete.length > 0) {
-                await redis.del(...keysToDelete);
-            }
-        } catch (redisErr) {
-            console.error('[LogoutAll Redis Invalidation Error]:', redisErr.message);
-        }
+        safeRedis.del(REDIS_KEYS.userTokenVersion(userId.toString()), ...sessionKeys);
 
         // 4. Blacklist current access token if present (Fixed 10 minutes TTL)
         if (accessToken && accessToken !== 'undefined') {
-            try {
-                const hashAccessToken = secureHash(accessToken);
-                const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-                await redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', ttl);
-            } catch (redisErr) {
-                console.error('[LogoutAll Redis Blacklist Error]:', redisErr.message);
-            }
+            const hashAccessToken = secureHash(accessToken);
+            const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+            safeRedis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', ttl);
         }
 
         return true;
@@ -653,12 +631,8 @@ const resetPassword = async (email, password, token) => {
         // 8. Revoke all active refresh token sessions for this user in DB (Source of Truth)
         await refreshTokenModel.deleteMany({ userId: user._id });
 
-        // 9. Redis Cache Invalidation with explicit try/catch
-        try {
-            await redis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
-        } catch (redisErr) {
-            console.error('[ResetPassword Redis Invalidation Error]:', redisErr.message);
-        }
+        // 9. Redis Cache Invalidation
+        safeRedis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
 
         return { user: updatedUser };
     }
@@ -937,10 +911,8 @@ const revokeSession = async (userId, sessionId, currentRefreshToken) => {
         }
 
         // Delete all tokens belonging to this session family and clear Redis session cache
-        await Promise.all([
-            refreshTokenModel.deleteMany({ familyId: session.familyId || session._id }),
-            redis.del(REDIS_KEYS.session(targetFamilyId))
-        ]);
+        await refreshTokenModel.deleteMany({ familyId: session.familyId || session._id });
+        safeRedis.del(REDIS_KEYS.session(targetFamilyId));
 
         return { isCurrent };
     } catch (error) {
