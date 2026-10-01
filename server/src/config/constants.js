@@ -1,7 +1,7 @@
 export const CONSTANTS = {
     NAME: {
-        ACCESS_TOKEN: 'accessToken',
-        REFRESH_TOKEN: 'refreshToken'
+        ACCESS_TOKEN: '__Host-sv_at',
+        REFRESH_TOKEN: '__Host-sv_rt'
     },
     AUTH_TOKEN: {
         ACCESS_TOKEN: '20m',

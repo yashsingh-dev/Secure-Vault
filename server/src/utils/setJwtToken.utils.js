@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import { CONSTANTS } from '../config/constants.js'
+import { CONSTANTS } from '../config/constants.js';
 import refreshTokenModel from '../models/refreshToken.model.js';
 import secureHash from './crypto.utils.js';
+import redis from '../db/redis.js';
+import REDIS_KEYS from '../config/redisKeys.js';
 
 export const generateAccessToken = async function (userId, tokenVersion, familyId = null) {
     const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
@@ -50,6 +52,16 @@ export const generateRefreshToken = async function (userId, rememberMe = false, 
             os: meta.os || 'Unknown OS',
             lastActive: new Date()
         });
+
+        // Cache active session in Redis with TTL matching refresh token lifespan
+        try {
+            const ttlSeconds = Math.floor(
+                (rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS) / 1000
+            );
+            await redis.set(REDIS_KEYS.session(tokenFamilyId.toString()), '1', 'EX', ttlSeconds);
+        } catch (cacheErr) {
+            console.error('Redis session cache error:', cacheErr.message);
+        }
 
         return refresh_token;
     } catch (error) {

@@ -398,29 +398,41 @@ const logout = async (accessToken, refreshToken) => {
                 if (tokenDoc) {
                     userId = tokenDoc.userId;
                     const familyId = tokenDoc.familyId || tokenDoc._id;
+                    
+                    // MongoDB deletion (source of truth)
                     await refreshTokenModel.deleteMany({ familyId });
+
+                    // Redis session invalidation
+                    try {
+                        await redis.del(REDIS_KEYS.session(familyId.toString()));
+                    } catch (redisErr) {
+                        console.error('[Redis Session Delete Error]:', redisErr.message);
+                    }
                 }
             } catch (err) {
-                // Silently continue if refresh token lookup fails
+                console.error('[Logout Session Revoke Error]:', err.message);
             }
         }
 
-        // 2. Blacklist Access Token if provided
+        // 2. Blacklist Access Token in Redis if provided
         if (accessToken && accessToken !== 'undefined') {
             try {
                 const decoded = jwt.decode(accessToken);
                 const currentTime = Math.floor(Date.now() / 1000);
-                // Calculate remaining validity in seconds, fallback to constant if exp is missing
                 const remainingTtl = (decoded && decoded.exp) 
                     ? (decoded.exp - currentTime) 
                     : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
 
                 if (remainingTtl > 0) {
                     const hashedAccessToken = secureHash(accessToken);
-                    await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', remainingTtl);
+                    try {
+                        await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', remainingTtl);
+                    } catch (redisErr) {
+                        console.error('[Redis Blacklist Write Error]:', redisErr.message);
+                    }
                 }
             } catch (err) {
-                // Silently ignore blacklist insertion failures during logout
+                console.error('[Logout Blacklist Token Error]:', err.message);
             }
         }
 
@@ -454,26 +466,35 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) 
         }
 
         if (userId) {
-            // Concurrently delete all active sessions and increment tokenVersion atomically
-            const tasks = [
-                refreshTokenModel.deleteMany({ userId }),
-                userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } })
-            ];
+            // 1. Database Operations (Source of Truth)
+            await refreshTokenModel.deleteMany({ userId });
+            await userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
 
-            if (accessToken && accessToken !== 'undefined') {
-                const decoded = jwt.decode(accessToken);
-                const currentTime = Math.floor(Date.now() / 1000);
-                const remainingTtl = (decoded && decoded.exp) 
-                    ? (decoded.exp - currentTime) 
-                    : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-
-                if (remainingTtl > 0) {
-                    const hashAccessToken = secureHash(accessToken);
-                    tasks.push(redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', remainingTtl));
-                }
+            // 2. Redis Cache Invalidation (Wrapped in try/catch)
+            try {
+                // Invalidate cached tokenVersion in Redis
+                await redis.del(REDIS_KEYS.userTokenVersion(userId.toString()));
+            } catch (redisErr) {
+                console.error('[LogoutAll Redis TokenVersion Invalidation Error]:', redisErr.message);
             }
 
-            await Promise.all(tasks);
+            // 3. Blacklist current access token if present
+            if (accessToken && accessToken !== 'undefined') {
+                try {
+                    const decoded = jwt.decode(accessToken);
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    const remainingTtl = (decoded && decoded.exp) 
+                        ? (decoded.exp - currentTime) 
+                        : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+
+                    if (remainingTtl > 0) {
+                        const hashAccessToken = secureHash(accessToken);
+                        await redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', remainingTtl);
+                    }
+                } catch (redisErr) {
+                    console.error('[LogoutAll Redis Blacklist Error]:', redisErr.message);
+                }
+            }
         }
 
         return true;
@@ -652,8 +673,15 @@ const resetPassword = async (email, password, token) => {
             throw new ApiError(401, 'This password reset link has already been used or expired.');
         }
 
-        // 8. Revoke all active refresh token sessions for this user
+        // 8. Revoke all active refresh token sessions for this user in DB (Source of Truth)
         await refreshTokenModel.deleteMany({ userId: user._id });
+
+        // 9. Redis Cache Invalidation with explicit try/catch
+        try {
+            await redis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
+        } catch (redisErr) {
+            console.error('[ResetPassword Redis Invalidation Error]:', redisErr.message);
+        }
 
         return { user: updatedUser };
     }
@@ -931,8 +959,11 @@ const revokeSession = async (userId, sessionId, currentRefreshToken) => {
             }
         }
 
-        // Delete all tokens belonging to this session family
-        await refreshTokenModel.deleteMany({ familyId: session.familyId || session._id });
+        // Delete all tokens belonging to this session family and clear Redis session cache
+        await Promise.all([
+            refreshTokenModel.deleteMany({ familyId: session.familyId || session._id }),
+            redis.del(REDIS_KEYS.session(targetFamilyId))
+        ]);
 
         return { isCurrent };
     } catch (error) {
