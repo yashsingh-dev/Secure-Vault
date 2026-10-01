@@ -29,21 +29,35 @@ export const authenticate = async (req, res, next) => {
             throw new ApiError(403, 'Session has been revoked. Please sign in again.');
         }
 
-        // 2. Token Version Check (Redis -> MongoDB Fallback)
-        let activeTokenVersion = await safeRedis.get(REDIS_KEYS.userTokenVersion(decoded._id));
-        if (activeTokenVersion !== null) {
-            activeTokenVersion = parseInt(activeTokenVersion, 10);
+        // 2. Token Version Check (Redis userProfile bucket -> MongoDB Fallback)
+        let activeTokenVersion = null;
+        const cachedProfile = await safeRedis.getJson(REDIS_KEYS.userProfile(decoded._id));
+        if (cachedProfile && cachedProfile.tokenVersion !== undefined && cachedProfile.tokenVersion !== null) {
+            activeTokenVersion = parseInt(cachedProfile.tokenVersion, 10);
         } else {
-            // Fallback: Query MongoDB if Redis missed or failed
-            const userData = await userModel.findById(decoded._id).select({ tokenVersion: 1 }).lean();
+            // Fallback: Query MongoDB if Redis missed or profile had no tokenVersion
+            const userData = await userModel.findById(decoded._id).select({
+                name: 1, email: 1, isVerified: 1, lastLogin: 1, tokenVersion: 1, googleLogin: 1, settings: 1, resetToken: 1
+            }).lean();
+
             if (!userData) {
                 clearTokenCookies(res);
                 throw new ApiError(409, 'User account no longer exists.');
             }
             activeTokenVersion = userData.tokenVersion;
 
-            // Self-heal Redis cache
-            safeRedis.set(REDIS_KEYS.userTokenVersion(decoded._id), activeTokenVersion);
+            // Self-heal userProfile cache in Redis
+            safeRedis.setJson(REDIS_KEYS.userProfile(decoded._id), {
+                _id: userData._id.toString(),
+                name: userData.name,
+                email: userData.email,
+                isVerified: userData.isVerified,
+                lastLogin: userData.lastLogin ? new Date(userData.lastLogin).toISOString() : null,
+                tokenVersion: userData.tokenVersion,
+                googleLogin: userData.googleLogin,
+                settings: userData.settings,
+                resetToken: userData.resetToken
+            });
         }
 
         if (activeTokenVersion !== decoded.tokenVersion) {

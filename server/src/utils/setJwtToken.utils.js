@@ -19,8 +19,8 @@ export const generateAccessToken = async function (userId, tokenVersion, familyI
 
         console.log(`Access Token generated for ${CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN}`);
 
-        // Pre-warm tokenVersion in Redis
-        safeRedis.set(REDIS_KEYS.userTokenVersion(userId.toString()), tokenVersion);
+        // Update tokenVersion in userProfile bucket
+        await safeRedis.updateUserProfile(userId.toString(), { tokenVersion });
 
         return access_token;
     } catch (error) {

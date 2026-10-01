@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import REDIS_KEYS from '../config/redisKeys';
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
@@ -31,7 +32,7 @@ redis.on('error', (err) => {
  */
 export const safeRedis = {
     /**
-     * Safely get a value by key.
+     * Safely get a raw string value by key.
      * @param {string} key 
      * @param {*} fallback Value returned if key is missing or Redis errors (default null)
      */
@@ -66,6 +67,44 @@ export const safeRedis = {
     },
 
     /**
+     * Safely get and parse a JSON object from Redis.
+     * Useful for Bucket 1 (Block), Bucket 2 (OTP), and Bucket 3 (Profile).
+     * @param {string} key 
+     * @param {*} fallback 
+     */
+    async getJson(key, fallback = null) {
+        try {
+            const raw = await redis.get(key);
+            if (!raw) return fallback;
+            return JSON.parse(raw);
+        } catch (err) {
+            console.error(`[safeRedis.getJson Error] key="${key}":`, err.message);
+            return fallback;
+        }
+    },
+
+    /**
+     * Safely serialize and store a JSON object into Redis with optional TTL.
+     * @param {string} key 
+     * @param {object} objectData 
+     * @param {number|null} exSeconds 
+     */
+    async setJson(key, objectData, exSeconds = null) {
+        try {
+            const jsonString = JSON.stringify(objectData);
+            if (exSeconds && Number.isInteger(Number(exSeconds)) && Number(exSeconds) > 0) {
+                await redis.set(key, jsonString, 'EX', Number(exSeconds));
+            } else {
+                await redis.set(key, jsonString);
+            }
+            return true;
+        } catch (err) {
+            console.error(`[safeRedis.setJson Error] key="${key}":`, err.message);
+            return false;
+        }
+    },
+
+    /**
      * Safely check if a key exists in Redis.
      * @param {string} key 
      * @param {boolean} fallback Fallback if Redis fails (default false)
@@ -95,6 +134,27 @@ export const safeRedis = {
         } catch (err) {
             console.error(`[safeRedis.del Error] keys="${keys.join(', ')}":`, err.message);
             return 0;
+        }
+    },
+
+    /**
+     * Safely updates specific fields in the cached user profile.
+     * @param {string} userId 
+     * @param {object} updates 
+     * @returns {Promise<boolean>}
+     */
+    async updateUserProfile(userId, updates) {
+        try {
+            const key = `${REDIS_KEYS.PREFIX.USER_PROFILE}:${userId}`;
+            const profile = await this.getJson(key);
+            if (profile) {
+                Object.assign(profile, updates);
+                return await this.setJson(key, profile);
+            }
+            return false;
+        } catch (err) {
+            console.error(`[safeRedis.updateUserProfile Error] userId="${userId}":`, err.message);
+            return false;
         }
     }
 };
