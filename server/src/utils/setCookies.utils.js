@@ -23,3 +23,11 @@ export const clearTokenCookies = function (res) {
     res.clearCookie(CONSTANTS.NAME.ACCESS_TOKEN, commonCookieOptions);
     res.clearCookie(CONSTANTS.NAME.REFRESH_TOKEN, commonCookieOptions);
 };
+
+export const getAccessToken = function (req) {
+    return req?.cookies?.[CONSTANTS.NAME.ACCESS_TOKEN];
+};
+
+export const getRefreshToken = function (req) {
+    return req?.cookies?.[CONSTANTS.NAME.REFRESH_TOKEN];
+};

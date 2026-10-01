@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { setAuthTokens, clearTokenCookies } from '../../utils/setCookies.utils.js'
+import { setAuthTokens, clearTokenCookies, getAccessToken, getRefreshToken } from '../../utils/setCookies.utils.js';
 import { generateAccessToken, generateRefreshToken, generateResetToken } from '../../utils/setJwtToken.utils.js';
 import ApiError from '../../utils/ApiError.js';
 import response from '../../utils/response.utils.js';
@@ -202,8 +202,8 @@ const checkAuth = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
     try {
-        const accessToken = req.cookies.accessToken;
-        const refreshToken = req.cookies.refreshToken;
+        const accessToken = getAccessToken(req);
+        const refreshToken = getRefreshToken(req);
 
         // Perform best-effort cleanup in database
         if (accessToken || refreshToken) {
@@ -223,8 +223,8 @@ const logout = async (req, res, next) => {
 
 const logoutAll = async (req, res, next) => {
     try {
-        const accessToken = req.cookies.accessToken;
-        const refreshToken = req.cookies.refreshToken;
+        const accessToken = getAccessToken(req);
+        const refreshToken = getRefreshToken(req);
         const userId = req.user;
 
         await authService.logoutAll(accessToken, refreshToken, userId);
@@ -242,7 +242,7 @@ const logoutAll = async (req, res, next) => {
 }
 
 const refreshAccessToken = async (req, res, next) => {
-    const oldRefreshToken = req.cookies.refreshToken;
+    const oldRefreshToken = getRefreshToken(req);
     try {
 
         // Check if refresh token exists in cookie
@@ -286,7 +286,7 @@ const refreshAccessToken = async (req, res, next) => {
 
 const getSessions = async (req, res, next) => {
     try {
-        const currentRefreshToken = req.cookies.refreshToken;
+        const currentRefreshToken = getRefreshToken(req);
         const sessions = await authService.getSessions(req.user, currentRefreshToken);
 
         return response(res, 200, 'Active sessions retrieved successfully.', {
@@ -305,7 +305,7 @@ const revokeSession = async (req, res, next) => {
             throw new ApiError(400, 'Session ID is required.');
         }
 
-        const currentRefreshToken = req.cookies.refreshToken;
+        const currentRefreshToken = getRefreshToken(req);
         const { isCurrent } = await authService.revokeSession(req.user, sessionId, currentRefreshToken);
 
         if (isCurrent) {

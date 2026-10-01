@@ -9,7 +9,8 @@ import generateOTP from "../../utils/otp.utils.js";
 import sendOTPEmail from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { formatTimeRemaining } from "../../lib/time.js";
-import blacklistTokenModel from "../../models/blacklistToken.model.js";
+import redis from "../../db/redis.js";
+import REDIS_KEYS from "../../config/redisKeys.js";
 import { parseUserAgent } from "../../utils/device.utils.js";
 import mongoose from "mongoose";
 
@@ -407,22 +408,16 @@ const logout = async (accessToken, refreshToken) => {
         // 2. Blacklist Access Token if provided
         if (accessToken && accessToken !== 'undefined') {
             try {
-                // If we don't have userId yet, try to decode from accessToken (even if expired)
-                if (!userId) {
-                    const decoded = jwt.decode(accessToken);
-                    if (decoded && decoded._id) {
-                        userId = decoded._id;
-                    }
-                }
+                const decoded = jwt.decode(accessToken);
+                const currentTime = Math.floor(Date.now() / 1000);
+                // Calculate remaining validity in seconds, fallback to constant if exp is missing
+                const remainingTtl = (decoded && decoded.exp) 
+                    ? (decoded.exp - currentTime) 
+                    : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
 
-                if (userId) {
+                if (remainingTtl > 0) {
                     const hashedAccessToken = secureHash(accessToken);
-                    // Use updateOne with upsert to prevent duplicate key crashes on concurrent logout
-                    await blacklistTokenModel.updateOne(
-                        { token: hashedAccessToken },
-                        { $setOnInsert: { token: hashedAccessToken, userId, createdAt: new Date() } },
-                        { upsert: true }
-                    );
+                    await redis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', 'EX', remainingTtl);
                 }
             } catch (err) {
                 // Silently ignore blacklist insertion failures during logout
@@ -459,21 +454,23 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null) 
         }
 
         if (userId) {
-            // Concurrently delete all active sessions, increment tokenVersion atomically, and blacklist accessToken
+            // Concurrently delete all active sessions and increment tokenVersion atomically
             const tasks = [
                 refreshTokenModel.deleteMany({ userId }),
                 userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } })
             ];
 
             if (accessToken && accessToken !== 'undefined') {
-                const hashAccessToken = secureHash(accessToken);
-                tasks.push(
-                    blacklistTokenModel.updateOne(
-                        { token: hashAccessToken },
-                        { $setOnInsert: { token: hashAccessToken, userId, createdAt: new Date() } },
-                        { upsert: true }
-                    )
-                );
+                const decoded = jwt.decode(accessToken);
+                const currentTime = Math.floor(Date.now() / 1000);
+                const remainingTtl = (decoded && decoded.exp) 
+                    ? (decoded.exp - currentTime) 
+                    : CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
+
+                if (remainingTtl > 0) {
+                    const hashAccessToken = secureHash(accessToken);
+                    tasks.push(redis.set(REDIS_KEYS.blacklist(hashAccessToken), '1', 'EX', remainingTtl));
+                }
             }
 
             await Promise.all(tasks);

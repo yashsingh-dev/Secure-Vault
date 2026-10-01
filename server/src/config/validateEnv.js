@@ -24,7 +24,8 @@ const OPTIONAL_KEYS = [
     { key: 'JWT_ACCESS_KEY', default: 'default-key' },
     { key: 'JWT_REFRESH_KEY', default: 'default-key' },
     { key: 'JWT_RESET_KEY', default: 'default-key' },
-    { key: 'CSRF_SECRET', default: 'default-key' }
+    { key: 'CSRF_SECRET', default: 'default-key' },
+    { key: 'REDIS_URL', default: 'redis://127.0.0.1:6379' }
 ];
 
 /**
