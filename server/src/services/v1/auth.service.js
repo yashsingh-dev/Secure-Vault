@@ -17,16 +17,7 @@ import mongoose from "mongoose";
 const login = async (email, password) => {
     try {
 
-        // 1. Fast Early-Check: If email is already mapped in Redis, check the Block Bucket
-        const cachedUserId = await safeRedis.get(REDIS_KEYS.emailToId(email));
-        if (cachedUserId) {
-            const cachedBlock = await safeRedis.getJson(REDIS_KEYS.userBlock(cachedUserId));
-            if (cachedBlock && cachedBlock.isBlocked && cachedBlock.blockExpiresAt > Date.now()) {
-                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(cachedBlock.blockExpiresAt)} due to ${cachedBlock.blockReason}.`);
-            }
-        }
-
-        // 2. Find User in MongoDB (Source of Truth for sensitive password hash)
+        // 1. Find User in MongoDB (Source of Truth for sensitive password hash)
         const user = await userModel.findOne({ email }).select('+password');
         if (!user) {
             throw new ApiError(401, 'Incorrect email or password. Please try again.');
@@ -34,66 +25,71 @@ const login = async (email, password) => {
 
         const userIdStr = user._id.toString();
 
-        // 3. Check Account Blocked
+        // 2. Check Account Blocked
         let currentUser = user;
         if (currentUser.isBlocked) {
             if (currentUser.blockExpiresAt > Date.now()) {
+                // Ensure Redis block bucket is synced
+                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                    isBlocked: true,
+                    blockReason: user.blockReason,
+                    blockedAt: user.blockedAt ? new Date(user.blockedAt).toISOString() : null,
+                    blockExpiresAt: user.blockExpiresAt ? new Date(user.blockExpiresAt).getTime() : null
+                });
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
             }
 
             // Atomically unblock ONLY if isBlocked is still true in the database
-            const unblockedUser = await userModel.findOneAndUpdate(
-                { _id: currentUser._id, isBlocked: true },
-                {
-                    $set: {
-                        isBlocked: false,
-                        blockReason: null,
-                        blockedAt: null,
-                        blockExpiresAt: null
-                    }
-                },
-                { new: true }
-            ).select('+password');
+            const [unblockedUser,] = await Promise.all([
+                userModel.findOneAndUpdate(
+                    { _id: currentUser._id, isBlocked: true },
+                    {
+                        $set: {
+                            isBlocked: false,
+                            blockReason: null,
+                            blockedAt: null,
+                            blockExpiresAt: null
+                        }
+                    },
+                    { new: true }
+                ).select('+password'),
+                safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                    isBlocked: false,
+                    blockReason: null,
+                    blockedAt: null,
+                    blockExpiresAt: null
+                })
+            ]);
 
-            if (unblockedUser) {
-                currentUser = unblockedUser;
-            } else {
-                // Another concurrent request completed the unblock right before this one.
-                const freshUser = await userModel.findById(currentUser._id).select('+password');
-                if (freshUser) {
-                    currentUser = freshUser;
-                    if (currentUser.isBlocked && currentUser.blockExpiresAt > Date.now()) {
-                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
-                    }
-                }
-            }
-
-            // Update Block Bucket in Redis to reflect unblocked state
-            safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
-                isBlocked: false,
-                blockReason: null,
-                blockedAt: null,
-                blockExpiresAt: null
-            });
+            currentUser = unblockedUser;
         }
 
-        // 4. Check if account is associated with Google
+        // 3. Check if account is associated with Google
         if (currentUser.googleLogin) {
             throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
-        // 5. Check Password
+        // 4. Check Password
         const isMatch = await verifyHash(password, currentUser.password);
         if (!isMatch) {
             throw new ApiError(401, 'Incorrect email or password. Please try again.');
         }
 
-        // 6. Check 2FA & Handle OTP Generation
+        // 5. Check 2FA & Handle OTP Generation
         const now = Date.now();
         if (currentUser.settings.alwaysRequireOtp || !currentUser.isVerified) {
 
             // Check existing OTP cooldown directly from the authoritative in-memory document
             if (currentUser.otpCoolDown && currentUser.otpCoolDown > now && currentUser.otpExpiry > now) {
+
+                // Sync OTP to Redis if not present
+                const otpTtl = Math.ceil((currentUser.otpExpiry - now) / 1000);
+                await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
+                    otp: currentUser.otp,
+                    otpExpiry: currentUser.otpExpiry,
+                    otpCoolDown: currentUser.otpCoolDown,
+                    otpAttempts: currentUser.otpAttempts || 0
+                }, otpTtl);
                 return { user: currentUser, is2FAEnabled: true };
             }
 
@@ -128,7 +124,7 @@ const login = async (email, password) => {
 
             // Sync new OTP state into Redis OTP Bucket (with expiry matching OTP lifetime)
             const otpTtlSeconds = Math.ceil(CONSTANTS.OTP.EXPIRY_MS / 1000);
-            safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
+            await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
                 otp,
                 otpExpiry,
                 otpCoolDown,
@@ -143,14 +139,14 @@ const login = async (email, password) => {
                     { _id: currentUser._id },
                     { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
                 );
-                safeRedis.del(REDIS_KEYS.userOtp(userIdStr));
+                await safeRedis.del(REDIS_KEYS.userOtp(userIdStr));
                 throw new ApiError(500, 'Unable to send verification code. Please try again.');
             }
 
             return { user: updatedUser, is2FAEnabled: true };
         }
 
-        // 7. Update Last Login atomically in MongoDB & sync to Redis User Profile Bucket
+        // 6. Update Last Login atomically in MongoDB & sync to Redis User Profile Bucket
         await userModel.updateOne(
             { _id: currentUser._id },
             { $set: { lastLogin: now } }
@@ -158,7 +154,7 @@ const login = async (email, password) => {
         currentUser.lastLogin = now;
 
         // Keep lastLogin fresh in Redis Profile Bucket (stored as ISO string for audit/frontend)
-        safeRedis.setJson(REDIS_KEYS.userProfile(userIdStr), {
+        await safeRedis.setJson(REDIS_KEYS.userProfile(userIdStr), {
             _id: userIdStr,
             name: currentUser.name,
             email: currentUser.email,
@@ -378,43 +374,41 @@ const googleAuth = async (code) => {
 
         if (currentUser.isBlocked) {
             if (currentUser.blockExpiresAt > now) {
+                // Ensure Redis block bucket is synced
+                await safeRedis.setJson(REDIS_KEYS.userBlock(currentUserIdStr), {
+                    isBlocked: true,
+                    blockReason: currentUser.blockReason,
+                    blockedAt: currentUser.blockedAt ? new Date(currentUser.blockedAt).toISOString() : null,
+                    blockExpiresAt: currentUser.blockExpiresAt ? new Date(currentUser.blockExpiresAt).getTime() : null
+                });
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
             }
 
             // Atomically unblock ONLY if isBlocked is still true in the database
-            const unblockedUser = await userModel.findOneAndUpdate(
-                { _id: currentUser._id, isBlocked: true },
-                {
-                    $set: {
-                        isBlocked: false,
-                        blockReason: null,
-                        blockedAt: null,
-                        blockExpiresAt: null
-                    }
-                },
-                { new: true }
-            );
+            const [unblockedUser] = await Promise.all([
+                userModel.findOneAndUpdate(
+                    { _id: currentUser._id, isBlocked: true },
+                    {
+                        $set: {
+                            isBlocked: false,
+                            blockReason: null,
+                            blockedAt: null,
+                            blockExpiresAt: null
+                        }
+                    },
+                    { new: true }
+                ),
+                safeRedis.setJson(REDIS_KEYS.userBlock(currentUserIdStr), {
+                    isBlocked: false,
+                    blockReason: null,
+                    blockedAt: null,
+                    blockExpiresAt: null
+                })
+            ]);
 
             if (unblockedUser) {
                 currentUser = unblockedUser;
-            } else {
-                // Another concurrent request completed the unblock right before this one.
-                const freshUser = await userModel.findById(currentUser._id);
-                if (freshUser) {
-                    currentUser = freshUser;
-                    if (currentUser.isBlocked && currentUser.blockExpiresAt > now) {
-                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(currentUser.blockExpiresAt)} due to ${currentUser.blockReason}.`);
-                    }
-                }
             }
-
-            // Update Block Bucket in Redis to reflect unblocked state
-            safeRedis.setJson(REDIS_KEYS.userBlock(currentUserIdStr), {
-                isBlocked: false,
-                blockReason: null,
-                blockedAt: null,
-                blockExpiresAt: null
-            });
         }
 
         // Check 2FA
@@ -465,7 +459,7 @@ const googleAuth = async (code) => {
 
             // Sync new OTP state into Redis OTP Bucket (with expiry matching OTP lifetime)
             const otpTtlSeconds = Math.ceil(CONSTANTS.OTP.EXPIRY_MS / 1000);
-            safeRedis.setJson(REDIS_KEYS.userOtp(currentUserIdStr), {
+            await safeRedis.setJson(REDIS_KEYS.userOtp(currentUserIdStr), {
                 otp,
                 otpExpiry,
                 otpCoolDown,
@@ -481,7 +475,7 @@ const googleAuth = async (code) => {
                     { _id: currentUser._id },
                     { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
                 );
-                safeRedis.del(REDIS_KEYS.userOtp(currentUserIdStr));
+                await safeRedis.del(REDIS_KEYS.userOtp(currentUserIdStr));
                 throw new ApiError(500, 'Unable to send verification code. Please try again.');
             }
 
@@ -500,7 +494,7 @@ const googleAuth = async (code) => {
         currentUser.lastLogin = now;
 
         // Keep lastLogin fresh in Redis Profile Bucket
-        safeRedis.setJson(REDIS_KEYS.userProfile(currentUserIdStr), {
+        await safeRedis.setJson(REDIS_KEYS.userProfile(currentUserIdStr), {
             _id: currentUserIdStr,
             name: currentUser.name,
             email: currentUser.email,
@@ -535,7 +529,7 @@ const logout = async (accessToken, refreshToken) => {
                     const familyId = tokenDoc.familyId || tokenDoc._id;
 
                     await refreshTokenModel.deleteMany({ familyId });
-                    safeRedis.del(REDIS_KEYS.session(familyId.toString()));
+                    await safeRedis.del(REDIS_KEYS.session(familyId.toString()));
                 }
             } catch (err) {
                 console.error('[Logout Session Revoke Error]:', err.message);
@@ -546,7 +540,7 @@ const logout = async (accessToken, refreshToken) => {
         if (accessToken && accessToken !== 'undefined') {
             const hashedAccessToken = secureHash(accessToken);
             const ttl = CONSTANTS.AUTH_TOKEN.BLACKLIST_TOKEN;
-            safeRedis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', ttl);
+            await safeRedis.set(REDIS_KEYS.blacklist(hashedAccessToken), '1', ttl);
         }
 
         return true;
@@ -618,55 +612,83 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null, 
 
 const sendOTP = async (email) => {
     try {
+        const now = Date.now();
 
-        // Check User
-        let user = await userModel.findOne({ email }).select({ isBlocked: 1, blockExpiresAt: 1, blockReason: 1, otpCoolDown: 1, otp: 1 }).lean();
+        // 1. Fast Path: Check Redis for existing cached userId
+        const cachedUserId = await safeRedis.get(REDIS_KEYS.emailToId(email));
+        if (cachedUserId) {
+            // Check Redis Block Bucket
+            const cachedBlock = await safeRedis.getJson(REDIS_KEYS.userBlock(cachedUserId));
+            if (cachedBlock && cachedBlock.isBlocked) {
+                if (cachedBlock.blockExpiresAt && cachedBlock.blockExpiresAt > now) {
+                    throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(cachedBlock.blockExpiresAt)} due to ${cachedBlock.blockReason}.`);
+                }
+            }
+
+            // Check Redis OTP Bucket for active cooldown (Deflects spam before touching MongoDB)
+            const cachedOtp = await safeRedis.getJson(REDIS_KEYS.userOtp(cachedUserId));
+            if (cachedOtp && cachedOtp.otpCoolDown && cachedOtp.otpCoolDown > now) {
+                throw new ApiError(429, 'Please wait before requesting another verification code.');
+            }
+        }
+
+        // 2. Fetch User from MongoDB
+        let user = await userModel.findOne({ email }).lean();
         if (!user) {
             throw new ApiError(404, 'No account found with this email address.');
         }
 
-        const now = Date.now();
+        const userIdStr = user._id.toString();
 
-        // Check Account Blocked
+        // Sync user id to redis only if 
+        if (cachedUserId !== userIdStr) await safeRedis.set(REDIS_KEYS.emailToId(email), userIdStr, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
+
+        // Check Account Blocked in MongoDB
         if (user.isBlocked) {
             if (user.blockExpiresAt > now) {
+                // Ensure Redis block bucket is synced
+                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                    isBlocked: true,
+                    blockReason: user.blockReason,
+                    blockedAt: user.blockedAt ? new Date(user.blockedAt).toISOString() : null,
+                    blockExpiresAt: user.blockExpiresAt ? new Date(user.blockExpiresAt).getTime() : null
+                });
                 throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
             }
 
-            // Atomically unblock if still blocked
-            const unblockedUser = await userModel.findOneAndUpdate(
-                { _id: user._id, isBlocked: true },
-                {
-                    $set: {
-                        isBlocked: false,
-                        blockReason: null,
-                        blockedAt: null,
-                        blockExpiresAt: null
-                    }
-                },
-                { new: true }
-            );
+            // Atomically unblock if expired
+            const [unblockedUser] = await Promise.all([
+                userModel.findOneAndUpdate(
+                    { _id: user._id, isBlocked: true },
+                    {
+                        $set: {
+                            isBlocked: false,
+                            blockReason: null,
+                            blockedAt: null,
+                            blockExpiresAt: null
+                        }
+                    },
+                    { new: true }
+                ),
+                safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                    isBlocked: false,
+                    blockReason: null,
+                    blockedAt: null,
+                    blockExpiresAt: null
+                })
+            ]);
 
             if (unblockedUser) {
                 user = unblockedUser;
-            } else {
-                // Another concurrent request completed the unblock right before this one.
-                const freshUser = await userModel.findById(user._id);
-                if (freshUser) {
-                    user = freshUser;
-                    if (user.isBlocked && user.blockExpiresAt > now) {
-                        throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
-                    }
-                }
             }
         }
 
-        // Generate OTP parameters
+        // 3. Generate OTP parameters
         const otp = generateOTP();
         const otpExpiry = now + CONSTANTS.OTP.EXPIRY_MS;
         const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
-        // Atomically update user ONLY if cooldown is null or has expired
+        // Atomically update user in MongoDB ONLY if cooldown is null or has expired
         const updatedUser = await userModel.findOneAndUpdate(
             {
                 _id: user._id,
@@ -691,16 +713,28 @@ const sendOTP = async (email) => {
             throw new ApiError(429, 'Please wait before requesting another verification code.');
         }
 
-        // Send Email with rollback on failure
+        // 4. Save OTP to Redis with TTL matching OTP expiry
+        const otpTtl = Math.ceil(CONSTANTS.OTP.EXPIRY_MS / 1000);
+        await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
+            otp,
+            otpExpiry,
+            otpCoolDown,
+            otpAttempts: 0
+        }, otpTtl);
+
+        // 5. Send Email with dual-rollback on failure (MongoDB + Redis)
         try {
-            const result = await sendOTPEmail(user.email, otp);
+            const result = await sendOTPEmail(email, otp);
             if (result && !result.success) throw new Error(result.error);
         } catch (error) {
-            // Rollback OTP in DB so user isn't stuck with an unsent code
-            await userModel.updateOne(
-                { _id: user._id },
-                { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
-            );
+            // Dual Rollback: Wipe OTP from MongoDB and delete from Redis
+            await Promise.all([
+                userModel.updateOne(
+                    { _id: user._id },
+                    { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                ),
+                safeRedis.del(REDIS_KEYS.userOtp(userIdStr))
+            ]);
             throw new ApiError(500, 'Unable to send verification code. Please try again.');
         }
 
@@ -789,7 +823,7 @@ const resetPassword = async (email, password, token) => {
         await refreshTokenModel.deleteMany({ userId: user._id });
 
         // 9. Redis Cache Invalidation
-        safeRedis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
+        await safeRedis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
 
         return { user: updatedUser };
     }
@@ -800,23 +834,63 @@ const resetPassword = async (email, password, token) => {
 
 const verifyOTP = async (email, otp) => {
     try {
-
+        let user = null;
         const now = Date.now();
 
-        // 1. Check user existence and block status first to give accurate errors
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            throw new ApiError(404, 'No account found with this email address.');
-        }
+        // 1. Check Redis for cached userId
+        let userIdStr = await safeRedis.get(REDIS_KEYS.emailToId(email));
+        let blockData = userIdStr ? await safeRedis.getJson(REDIS_KEYS.userBlock(userIdStr)) : null;
+        let otpData = userIdStr ? await safeRedis.getJson(REDIS_KEYS.userOtp(userIdStr)) : null;
 
-        if (user.isBlocked) {
-            if (user.blockExpiresAt > now) {
-                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
+        // 2. SINGLE-READ FALLBACK:
+        // If ANY key missed in Redis, fetch from MongoDB once and only once.
+        if (!userIdStr || !blockData || !otpData) {
+            user = await userModel.findOne({ email }).lean();
+            if (!user) {
+                throw new ApiError(404, 'No account found with this email address.');
+            }
+            userIdStr = user._id.toString();
+
+            // Use in-memory MongoDB document for missing emailToId
+            if (!userIdStr) {
+                await safeRedis.set(REDIS_KEYS.emailToId(email), userIdStr);
             }
 
-            // Unblock atomically if block has expired
-            await userModel.updateOne(
-                { _id: user._id, isBlocked: true },
+            // Use in-memory MongoDB document for missing block data
+            if (!blockData) {
+                blockData = {
+                    isBlocked: Boolean(user.isBlocked),
+                    blockReason: user.blockReason,
+                    blockedAt: user.blockedAt ? new Date(user.blockedAt).toISOString() : null,
+                    blockExpiresAt: user.blockExpiresAt ? new Date(user.blockExpiresAt).getTime() : null
+                };
+                // Self-heal block bucket
+                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), blockData);
+            }
+
+            // Use in-memory MongoDB document for missing OTP data
+            if (!otpData) {
+                if (!user.otp) {
+                    throw new ApiError(400, 'No active verification code found. Please request a new one.');
+                }
+                otpData = {
+                    otp: user.otp,
+                    otpExpiry: user.otpExpiry,
+                    otpCoolDown: user.otpCoolDown,
+                    otpAttempts: user.otpAttempts || 0
+                };
+            }
+        }
+
+        // 3. Validate Block Status
+        if (blockData.isBlocked) {
+            if (blockData.blockExpiresAt && blockData.blockExpiresAt > now) {
+                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(blockData.blockExpiresAt)} due to ${blockData.blockReason}.`);
+            }
+
+            // Unblock expired block in MongoDB and Redis
+            const updatedUser = await userModel.updateOne(
+                { _id: userIdStr, isBlocked: true },
                 {
                     $set: {
                         isBlocked: false,
@@ -824,64 +898,110 @@ const verifyOTP = async (email, otp) => {
                         blockedAt: null,
                         blockExpiresAt: null
                     }
-                }
+                },
+                { new: true, lean: true }
             );
-            user.isBlocked = false;
+
+            if (updatedUser) {
+                user = updatedUser; // Update in-memory user document
+                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                    isBlocked: false,
+                    blockReason: null,
+                    blockedAt: null,
+                    blockExpiresAt: null
+                });
+            }
         }
 
-        // 2. Check if an active OTP was actually requested
-        if (!user.otp) {
-            throw new ApiError(400, 'No active verification code found. Please request a new one.');
+        // 4. Check OTP Expiry 
+        if (otpData.otpExpiry && otpData.otpExpiry < now) {
+            const updatedUser = await userModel.updateOne(
+                { _id: userIdStr },
+                { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } },
+                { new: true, lean: true }
+            );
+
+            if (updatedUser) {
+                user = updatedUser; // Update in-memory user document
+                await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
+                    otp: null,
+                    otpExpiry: null,
+                    otpCoolDown: null,
+                    otpAttempts: 0
+                });
+            }
+
+            throw new ApiError(401, 'This verification code has expired. Please request a new one.');
         }
 
-        // 3. Atomically claim attempt: only increment if otpAttempts < 5
-        const updatedUser = await userModel.findOneAndUpdate(
-            {
-                _id: user._id,
-                otpAttempts: { $lt: 5 }
-            },
-            {
-                $inc: { otpAttempts: 1 }
-            },
-            { new: true }
-        );
-
-        // If updatedUser is null, user already hit the maximum 5 attempts
-        if (!updatedUser) {
+        // 5. Check Attempt Limit Before Testing Match
+        if (otpData.otpAttempts >= 5) {
             throw new ApiError(403, 'Too many incorrect attempts. Please request a new verification code.');
         }
 
-        // 4. Check if the provided OTP matches
-        if (updatedUser.otp.toString() !== otp.toString()) {
-            // If this was the 5th failed attempt, block the user atomically
-            if (updatedUser.otpAttempts >= 5) {
-                await userModel.updateOne(
-                    { _id: updatedUser._id },
-                    {
-                        $set: {
-                            otp: null,
-                            otpExpiry: null,
-                            otpCoolDown: null,
-                            isBlocked: true,
-                            blockReason: 'Too many failed OTP attempts',
-                            blockedAt: now,
-                            blockExpiresAt: now + CONSTANTS.OTP.BLOCK_TIME_MS
+        // 6. Test OTP Match
+        if (otpData.otp.toString() !== otp.toString()) {
+            // Atomic increment of failed attempts directly in MongoDB to prevent concurrent bypass
+            const failedAttemptUser = await userModel.findOneAndUpdate(
+                { _id: userIdStr, otpAttempts: { $lt: 5 } },
+                { $inc: { otpAttempts: 1 } },
+                { new: true, select: { otpAttempts: 1, otpExpiry: 1 } }
+            );
+
+            const newAttempts = failedAttemptUser ? failedAttemptUser.otpAttempts : 5;
+
+            // If 5th failed attempt reached, lock the account atomically in MongoDB & Redis
+            if (newAttempts >= 5) {
+                const blockExpiresAt = now + CONSTANTS.OTP.BLOCK_TIME_MS;
+                const blockReason = 'Too many failed OTP attempts';
+
+                await Promise.all([
+                    userModel.updateOne(
+                        { _id: userIdStr },
+                        {
+                            $set: {
+                                otp: null,
+                                otpExpiry: null,
+                                otpCoolDown: null,
+                                otpAttempts: 0,
+                                isBlocked: true,
+                                blockReason,
+                                blockedAt: now,
+                                blockExpiresAt
+                            }
                         }
-                    }
-                );
+                    ),
+                    safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
+                        isBlocked: true,
+                        blockReason,
+                        blockedAt: new Date(now).toISOString(),
+                        blockExpiresAt
+                    }),
+                    safeRedis.del(REDIS_KEYS.userOtp(userIdStr))
+                ]);
+
+                throw new ApiError(403, 'Too many incorrect attempts. Your account has been temporarily locked.');
             }
+
+            // Sync incremented attempts to Redis
+            const remainingTtl = otpData.otpExpiry ? Math.max(1, Math.ceil((otpData.otpExpiry - now) / 1000)) : 300;
+            await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
+                ...otpData,
+                otpAttempts: newAttempts
+            }, remainingTtl);
 
             throw new ApiError(401, 'Incorrect verification code. Please check and try again.');
         }
 
-        // 5. Check OTP Expiry
-        if (updatedUser.otpExpiry < now) {
-            throw new ApiError(401, 'This verification code has expired. Please request a new one.');
-        }
-
-        // 6. Success: Atomically mark verified, clear OTP fields, and update lastLogin
-        await userModel.updateOne(
-            { _id: updatedUser._id },
+        // 8. ATOMIC CLAIM & BURN:
+        // Ensures only ONE concurrent request can successfully claim this OTP.
+        // Guarantees zero race conditions even under concurrent request spam.
+        const updatedUserDoc = await userModel.findOneAndUpdate(
+            {
+                _id: userIdStr,
+                otp: otp.toString(),
+                otpExpiry: { $gte: now }
+            },
             {
                 $set: {
                     isVerified: true,
@@ -891,18 +1011,32 @@ const verifyOTP = async (email, otp) => {
                     otpAttempts: 0,
                     lastLogin: now
                 }
-            }
+            },
+            { new: true }
         );
 
-        updatedUser.isVerified = true;
-        updatedUser.otp = null;
-        updatedUser.otpExpiry = null;
-        updatedUser.otpCoolDown = null;
-        updatedUser.otpAttempts = 0;
-        updatedUser.lastLogin = now;
+        // If updatedUserDoc is null, another concurrent request already verified and burned the OTP
+        if (!updatedUserDoc) {
+            throw new ApiError(401, 'Verification code has already been used or expired.');
+        }
 
-        return { user: updatedUser };
+        // 9. Concurrently clean OTP bucket & update User Profile Bucket in Redis
+        await Promise.all([
+            safeRedis.del(REDIS_KEYS.userOtp(userIdStr)),
+            safeRedis.setJson(REDIS_KEYS.userProfile(userIdStr), {
+                _id: userIdStr,
+                name: updatedUserDoc.name,
+                email: updatedUserDoc.email,
+                isVerified: true,
+                lastLogin: new Date(now).toISOString(),
+                tokenVersion: updatedUserDoc.tokenVersion || 0,
+                googleLogin: Boolean(updatedUserDoc.googleLogin),
+                settings: updatedUserDoc.settings || { alwaysRequireOtp: false },
+                resetToken: updatedUserDoc.resetToken || null
+            })
+        ]);
 
+        return { user: updatedUserDoc };
     }
     catch (error) {
         throw error;
@@ -947,7 +1081,7 @@ const refreshToken = async (oldRefreshToken) => {
             } else {
                 // If used AFTER 10 seconds, this is a REUSE ATTACK (stolen token)!
                 await refreshTokenModel.deleteMany({ familyId });
-                safeRedis.del(REDIS_KEYS.session(familyId.toString()));
+                await safeRedis.del(REDIS_KEYS.session(familyId.toString()));
                 throw new ApiError(403, 'Compromised token detected. Please sign in again.');
             }
         }
@@ -1070,7 +1204,7 @@ const revokeSession = async (userId, sessionId, currentRefreshToken) => {
 
         // Delete all tokens belonging to this session family and clear Redis session cache
         await refreshTokenModel.deleteMany({ familyId: session.familyId || session._id });
-        safeRedis.del(REDIS_KEYS.session(targetFamilyId));
+        await safeRedis.del(REDIS_KEYS.session(targetFamilyId));
 
         return { isCurrent };
     } catch (error) {
