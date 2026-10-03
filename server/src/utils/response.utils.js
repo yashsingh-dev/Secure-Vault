@@ -1,14 +1,14 @@
-const response = (res, statusCode = 500, message = null, payload = null, success = null) => {
-    // Determine success if not provided (2xx and 3xx are success)
-    const isSuccess = success !== null ? success : (statusCode >= 200 && statusCode < 400);
+const response = (res, statusCode = 200, message = null, payload = null) => {
+    // 2xx and 3xx are successes; 4xx and 5xx are errors (DRY: auto-derived from HTTP status)
+    const success = statusCode >= 200 && statusCode < 400;
     
-    // Determine message if not provided
-    const defaultMessage = isSuccess ? 'Success' : 'Internal Server Error';
+    // Fallback default message if none is provided
+    const defaultMessage = success ? 'Success' : 'Internal Server Error';
 
     return res.status(statusCode).json({
-        success: isSuccess,
+        success,
         message: message || defaultMessage,
-        payload: payload,
+        payload, // keeping 'payload' for client compatibility (can alias to 'data' if needed)
     });
 };
 
