@@ -128,7 +128,7 @@ const login = async (email, password) => {
                 name: currentUser.name,
                 email: currentUser.email,
                 isVerified: currentUser.isVerified,
-                lastLogin: new Date(now).toISOString(),
+                lastLogin: now,
                 tokenVersion: currentUser.tokenVersion,
                 googleLogin: currentUser.googleLogin,
                 settings: currentUser.settings
@@ -168,7 +168,7 @@ const register = async (name, email, password) => {
                 otp,
                 otpExpiry: now + CONSTANTS.OTP.EXPIRY_MS,
                 otpCoolDown: now + CONSTANTS.OTP.COOL_DOWN_MS,
-                otpAttempts: 0
+                otpAttempts: 0,
             });
         } catch (dbError) {
             if (dbError.code === 11000) {
@@ -201,7 +201,7 @@ const register = async (name, email, password) => {
                 name: new_user.name,
                 email: new_user.email,
                 isVerified: new_user.isVerified,
-                lastLogin: null,
+                lastLogin: now,
                 tokenVersion: new_user.tokenVersion || 0,
                 googleLogin: false,
                 settings: new_user.settings || { alwaysRequireOtp: false }
@@ -300,7 +300,7 @@ const googleAuth = async (code) => {
                         name: new_user.name,
                         email: new_user.email,
                         isVerified: new_user.isVerified,
-                        lastLogin: null,
+                        lastLogin: now,
                         tokenVersion: new_user.tokenVersion || 0,
                         googleLogin: true,
                         settings: new_user.settings || { alwaysRequireOtp: false }
@@ -414,7 +414,7 @@ const googleAuth = async (code) => {
             name: currentUser.name,
             email: currentUser.email,
             isVerified: currentUser.isVerified,
-            lastLogin: new Date(now).toISOString(),
+            lastLogin: now,
             tokenVersion: currentUser.tokenVersion,
             googleLogin: currentUser.googleLogin,
             settings: currentUser.settings
@@ -827,8 +827,7 @@ const verifyOTP = async (email, otp) => {
 
                     await userModel.updateOne(
                         { _id: user._id, otp: user.otp },
-                        { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } },
-                        { lean: true }
+                        { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
                     );
 
                     await safeRedis.del(REDIS_KEYS.userOtp(userIdStr));
@@ -838,14 +837,14 @@ const verifyOTP = async (email, otp) => {
                 const ttlSeconds = Math.max(1, Math.ceil((new Date(user.otpExpiry).getTime() - now) / 1000));
                 await safeRedis.setJson(REDIS_KEYS.userOtp(userIdStr), {
                     otp: user.otp,
-                    otpCoolDown: user.otpCoolDown,
+                    otpCoolDown: new Date(user.otpCoolDown).getTime(),
                     otpAttempts: user.otpAttempts || 0
                 }, ttlSeconds);
 
                 // Update in-memory OTP data
                 otpData = {
                     otp: user.otp,
-                    otpCoolDown: user.otpCoolDown,
+                    otpCoolDown: new Date(user.otpCoolDown).getTime(),
                     otpAttempts: user.otpAttempts || 0
                 };
             }
@@ -951,7 +950,7 @@ const verifyOTP = async (email, otp) => {
                 name: updatedUserDoc.name,
                 email: updatedUserDoc.email,
                 isVerified: true,
-                lastLogin: new Date(now).toISOString(),
+                lastLogin: now,
                 tokenVersion: updatedUserDoc.tokenVersion || 0,
                 googleLogin: Boolean(updatedUserDoc.googleLogin),
                 settings: updatedUserDoc.settings || { alwaysRequireOtp: false }

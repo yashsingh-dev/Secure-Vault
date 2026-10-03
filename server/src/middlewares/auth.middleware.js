@@ -47,7 +47,7 @@ export const authenticate = async (req, res, next) => {
             activeTokenVersion = userData.tokenVersion;
 
             // Self-heal userProfile cache in Redis
-            safeRedis.setJson(REDIS_KEYS.userProfile(decoded._id), {
+            await safeRedis.setJson(REDIS_KEYS.userProfile(decoded._id), {
                 _id: userData._id.toString(),
                 name: userData.name,
                 email: userData.email,
@@ -56,7 +56,7 @@ export const authenticate = async (req, res, next) => {
                 tokenVersion: userData.tokenVersion,
                 googleLogin: userData.googleLogin,
                 settings: userData.settings
-            });
+            }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
         }
 
         if (activeTokenVersion !== decoded.tokenVersion) {
@@ -76,7 +76,7 @@ export const authenticate = async (req, res, next) => {
                 if (isSessionActive) {
                     // Self-heal Redis session cache with refresh token TTL
                     const sessionTtl = Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
-                    safeRedis.set(REDIS_KEYS.session(decoded.familyId), '1', sessionTtl);
+                    await safeRedis.set(REDIS_KEYS.session(decoded.familyId), '1', sessionTtl);
                 }
             }
 

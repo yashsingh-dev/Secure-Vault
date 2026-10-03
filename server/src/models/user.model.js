@@ -39,7 +39,7 @@ const userModel = mongoose.Schema({
     },
     lastLogin: {
         type: Date,
-        default: null
+        default: Date.now
     },
     tokenVersion: {
         type: Number,
