@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import REDIS_KEYS from '../config/redisKeys.js';
+import { CONSTANTS } from '../config/constants.js';
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
@@ -149,7 +150,7 @@ export const safeRedis = {
             const profile = await this.getJson(key);
             if (profile) {
                 Object.assign(profile, updates);
-                return await this.setJson(key, profile);
+                return await this.setJson(key, profile, Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000));
             }
             return false;
         } catch (err) {

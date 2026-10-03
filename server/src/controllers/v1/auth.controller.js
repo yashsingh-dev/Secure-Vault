@@ -66,7 +66,7 @@ const googleAuth = async (req, res, next) => {
     try {
         const { code } = req.body;
 
-        const { user, is2FAEnabled, rememberMe } = await authService.googleAuth(code);
+        const { user, is2FAEnabled, rememberMe = false } = await authService.googleAuth(code);
 
         if (!is2FAEnabled) {
             // Generate JWT Token
@@ -174,7 +174,7 @@ const verifyOtpForReset = async (req, res, next) => {
                 { _id: user._id },
                 { $set: { resetToken: token, resetTokenExpiry } }
             ),
-            
+
             // Warm up Redis cache for emailToId
             safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString())
         ]);
@@ -232,6 +232,7 @@ const logoutAll = async (req, res, next) => {
     try {
         const accessToken = getAccessToken(req);
         const refreshToken = getRefreshToken(req);
+        
         const userId = req.user;
         const currentTokenVersion = req.tokenVersion;
 
