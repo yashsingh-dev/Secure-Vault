@@ -176,7 +176,7 @@ const verifyOtpForReset = async (req, res, next) => {
             ),
 
             // Warm up Redis cache for emailToId
-            safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString())
+            safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString(), CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
         ]);
 
         // Send Response

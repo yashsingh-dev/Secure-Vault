@@ -418,7 +418,7 @@ const googleAuth = async (code) => {
             tokenVersion: currentUser.tokenVersion,
             googleLogin: currentUser.googleLogin,
             settings: currentUser.settings
-        });
+        }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
 
         return {
             user: currentUser,
@@ -631,16 +631,21 @@ const resetPassword = async (email, password, token) => {
         let userIdStr = await safeRedis.get(REDIS_KEYS.emailToId(email));
 
         // Fetch Block bucket and Standalone Reset Token from Redis in parallel if userId is known
-        let [blockData, cachedResetToken] = userIdStr
+        let [blockReason, cachedResetToken] = userIdStr
             ? await Promise.all([
                 safeRedis.getJson(REDIS_KEYS.userBlock(userIdStr)),
                 safeRedis.get(REDIS_KEYS.userResetToken(userIdStr))
             ])
             : [null, null];
 
-        // 2. SINGLE-READ FALLBACK:
-        // If ANY key missed in Redis, fetch from MongoDB once and only once.
-        if (!userIdStr || !blockData || !cachedResetToken) {
+        // Fast lookup from redis if user is blocked or not
+        if (blockReason) {
+            throw new ApiError(403, `Your account has been blocked due to ${blockReason}. Please contact support for assistance.`);
+        }
+
+        // 2. If ANY key missed in Redis, fetch from MongoDB once and only once.
+        if (!userIdStr || !cachedResetToken) {
+
             user = await userModel.findOne({ email }).lean();
             if (!user) {
                 throw new ApiError(404, 'No account found with this email address.');
@@ -648,18 +653,14 @@ const resetPassword = async (email, password, token) => {
 
             if (!userIdStr) {
                 userIdStr = user._id.toString();
-                await safeRedis.set(REDIS_KEYS.emailToId(email), userIdStr);
+                await safeRedis.set(REDIS_KEYS.emailToId(email), userIdStr, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
             }
 
-            // Populate missing block data from in-memory user document
-            if (!blockData) {
-                blockData = {
-                    isBlocked: Boolean(user.isBlocked),
-                    blockReason: user.blockReason,
-                    blockedAt: user.blockedAt ? new Date(user.blockedAt).toISOString() : null,
-                    blockExpiresAt: user.blockExpiresAt ? new Date(user.blockExpiresAt).getTime() : null
-                };
-                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), blockData);
+            // Use in-memory MongoDB document for missing block data
+            if (user.isBlocked && user.blockExpiresAt > now) {
+                const ttlSeconds = Math.max(1, Math.ceil((new Date(user.blockExpiresAt).getTime() - now) / 1000));
+                await safeRedis.set(REDIS_KEYS.userBlock(userIdStr), user.blockReason || 'Security policy violation', ttlSeconds);
+                throw new ApiError(403, `Your account has been blocked due to ${user.blockReason}. Please contact support for assistance.`);
             }
 
             // Populate missing reset token from in-memory user document
@@ -668,16 +669,14 @@ const resetPassword = async (email, password, token) => {
                 if (cachedResetToken) {
                     const ttl = Math.floor(CONSTANTS.RESET_TOKEN.EXPIRY_MS / 1000);
                     await safeRedis.set(REDIS_KEYS.userResetToken(userIdStr), cachedResetToken, ttl);
+                } else {
+                    await safeRedis.del(REDIS_KEYS.userResetToken(userIdStr));
+                    throw new ApiError(403, 'Invalid or expired reset token.');
                 }
             }
         }
 
-        // 3. Fast Block Status Check (Same as verifyOTP - do not auto-unblock here for performance)
-        if (blockData && blockData.isBlocked && blockData.blockExpiresAt > now) {
-            throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(blockData.blockExpiresAt)} due to ${blockData.blockReason}.`);
-        }
-
-        // 4. Check if Google Auth
+        // 3. Check if Google Auth
         let isGoogleLogin = false;
         if (user) {
             isGoogleLogin = Boolean(user.googleLogin);
@@ -695,7 +694,7 @@ const resetPassword = async (email, password, token) => {
             throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
-        // 5. Verify Token Cryptographically with JWT
+        // 4. Verify Token Cryptographically with JWT
         const secret_key = process.env.JWT_RESET_KEY || 'default-key';
         let decoded;
         try {
@@ -713,12 +712,12 @@ const resetPassword = async (email, password, token) => {
             throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
-        // 6. Check Token Match against Redis / Document
+        // 5. Check Token Match against Redis / Document
         if (!cachedResetToken || cachedResetToken !== token) {
             throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
-        // 7. Encrypt New Password
+        // 6. Encrypt New Password
         const hash_password = await createHash(password);
 
         // 8. Fetch active sessions to invalidate from Redis before deleting from DB
@@ -900,12 +899,7 @@ const verifyOTP = async (email, otp) => {
                             }
                         }
                     ),
-                    safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), {
-                        isBlocked: true,
-                        blockReason,
-                        blockedAt: new Date(now).toISOString(),
-                        blockExpiresAt
-                    }),
+                    safeRedis.set(REDIS_KEYS.userBlock(userIdStr), blockReason, Math.ceil((blockExpiresAt - now) / 1000)),
                     safeRedis.del(REDIS_KEYS.userOtp(userIdStr))
                 ]);
 
