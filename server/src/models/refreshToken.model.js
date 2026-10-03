@@ -56,6 +56,8 @@ const RefreshTokenModel = mongoose.Schema({
     }
 }, { timestamps: true });
 
-RefreshTokenModel.index({ userId: 1, familyId: 1 });
+refreshTokenSchema.index({ token: 1, familyId: 1 });
+refreshTokenSchema.index({ userId: 1, familyId: 1 });
+refreshTokenSchema.index({ userId: 1, isRotated: 1, lastActive: -1 });
 
 export default mongoose.model('refreshToken', RefreshTokenModel);

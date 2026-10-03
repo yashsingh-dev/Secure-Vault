@@ -8,7 +8,6 @@ import secureHash from "../../utils/crypto.utils.js";
 import generateOTP from "../../utils/otp.utils.js";
 import sendOTPEmail from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
-import { formatTimeRemaining } from "../../lib/time.js";
 import { safeRedis } from "../../db/redis.js";
 import REDIS_KEYS from "../../config/redisKeys.js";
 import { parseUserAgent } from "../../utils/device.utils.js";
@@ -64,7 +63,7 @@ const login = async (email, password) => {
             const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
             // Atomically update MongoDB only if cooldown is expired
-            const updatedUser = await userModel.findOneAndUpdate(
+            const result = await userModel.updateOne(
                 {
                     _id: currentUser._id,
                     $or: [
@@ -79,11 +78,12 @@ const login = async (email, password) => {
                         otpCoolDown,
                         otpAttempts: 0
                     }
-                },
-                { new: true }
+                }
             );
 
-            if (!updatedUser) {
+            const isUpdated = result.modifiedCount > 0;
+
+            if (!isUpdated) {
                 return { user: currentUser, is2FAEnabled: true };
             }
 
@@ -110,7 +110,7 @@ const login = async (email, password) => {
                 throw new ApiError(500, 'Unable to send verification code. Please try again.');
             }
 
-            return { user: updatedUser, is2FAEnabled: true };
+            return { user: currentUser, is2FAEnabled: true };
         }
 
         // 6. Update Last Login atomically in MongoDB & sync to Redis User Profile Bucket
@@ -183,7 +183,7 @@ const register = async (name, email, password) => {
             if (!result.success) throw new Error(result.error);
         } catch (error) {
             // Delete user if email fails to prevent deadlock (cleanup)
-            await userModel.findByIdAndDelete(new_user._id);
+            await userModel.deleteOne({ _id: new_user._id });
             throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
         }
 
@@ -250,7 +250,8 @@ const googleAuth = async (code) => {
         const now = Date.now();
 
         // Find user or create user
-        let user = await userModel.findOne({ email: userData.email });
+        let user = await userModel.findOne({ email: userData.email }).lean();
+
         if (!user) {
 
             // Generate OTP
@@ -282,7 +283,7 @@ const googleAuth = async (code) => {
                     if (!result.success) throw new Error(result.error);
                 } catch (error) {
                     // Delete user if email fails to prevent deadlock (cleanup)
-                    await userModel.findByIdAndDelete(new_user._id);
+                    await userModel.deleteOne({ _id: new_user._id });
                     throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
                 }
 
@@ -353,7 +354,7 @@ const googleAuth = async (code) => {
             const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
             // Atomically update the database only if cooldown is expired
-            const updatedUser = await userModel.findOneAndUpdate(
+            const result = await userModel.updateOne(
                 {
                     _id: currentUser._id,
                     $or: [
@@ -372,8 +373,9 @@ const googleAuth = async (code) => {
                 { new: true }
             );
 
-            // If another concurrent request just updated the OTP milliseconds ago
-            if (!updatedUser) {
+            const isUpdated = result.modifiedCount > 0;
+
+            if (!isUpdated) {
                 return { user: currentUser, is2FAEnabled: true };
             }
 
@@ -398,7 +400,7 @@ const googleAuth = async (code) => {
                 throw new ApiError(500, 'Unable to send verification code. Please try again.');
             }
 
-            return { user: updatedUser, is2FAEnabled: true };
+            return { user: currentUser, is2FAEnabled: true };
         }
 
         // Update lastLogin atomically without relying on in-memory .save()
@@ -438,7 +440,7 @@ const logout = async (accessToken, refreshToken) => {
         if (refreshToken && refreshToken !== 'undefined') {
             try {
                 const hashedRefreshToken = secureHash(refreshToken);
-                const tokenDoc = await refreshTokenModel.findOne({ token: hashedRefreshToken });
+                const tokenDoc = await refreshTokenModel.findOne({ token: hashedRefreshToken }).select({ familyId: 1, _id: 0 }).lean();
                 if (tokenDoc) {
                     const targetFamilyId = tokenDoc.familyId;
 
@@ -481,8 +483,8 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null, 
         const updatedUserDoc = await userModel.findOneAndUpdate(
             updateQuery,
             { $inc: { tokenVersion: 1 } },
-            { new: true, select: { tokenVersion: 1 } }
-        );
+            { new: true, projection: { _id: 0, tokenVersion: 1 } }
+        ).lean();
 
         // If a concurrent request already updated tokenVersion, exit early.
         if (!updatedUserDoc) {
@@ -494,7 +496,7 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null, 
         // 2. Fetch user's active session family IDs before deleting from MongoDB
         let sessionKeys = [];
         try {
-            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1 }).lean();
+            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1, _id: 0 }).lean();
             sessionKeys = [
                 ...new Set(
                     activeSessions
@@ -567,7 +569,7 @@ const sendOTP = async (email) => {
         const otpCoolDown = now + CONSTANTS.OTP.COOL_DOWN_MS;
 
         // Atomically update user in MongoDB ONLY if cooldown is null or has expired
-        const updatedUser = await userModel.findOneAndUpdate(
+        const result = await userModel.updateOne(
             {
                 _id: user._id,
                 $or: [
@@ -583,11 +585,12 @@ const sendOTP = async (email) => {
                     otpAttempts: 0
                 }
             },
-            { new: true }
         );
 
+        const isUpdated = result.modifiedCount > 0;
+
         // Concurrent request
-        if (!updatedUser) {
+        if (!isUpdated) {
             return { user };
         }
 
@@ -615,7 +618,7 @@ const sendOTP = async (email) => {
             throw new ApiError(500, 'Unable to send verification code. Please try again.');
         }
 
-        return { user: updatedUser };
+        return { user };
     }
     catch (error) {
         throw error;
@@ -686,7 +689,7 @@ const resetPassword = async (email, password, token) => {
                 isGoogleLogin = Boolean(cachedProfile.googleLogin);
             } else {
                 // Fetch just googleLogin if neither RAM nor Redis had profile
-                const freshDoc = await userModel.findById(userIdStr).select({ googleLogin: 1 }).lean();
+                const freshDoc = await userModel.findById(userIdStr).select({ googleLogin: 1, _id: 0 }).lean();
                 isGoogleLogin = Boolean(freshDoc?.googleLogin);
             }
         }
@@ -723,7 +726,7 @@ const resetPassword = async (email, password, token) => {
         // 8. Fetch active sessions to invalidate from Redis before deleting from DB
         let sessionKeys = [];
         try {
-            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1 }).lean();
+            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1, _id: 0 }).lean();
             sessionKeys = [
                 ...new Set(
                     activeSessions
@@ -751,8 +754,9 @@ const resetPassword = async (email, password, token) => {
                     },
                     $inc: { tokenVersion: 1 }
                 },
-                { new: true }
-            ),
+                { new: true, projection: { email: 1, tokenVersion: 1 } }
+            ).lean(),
+
             refreshTokenModel.deleteMany({ userId: userIdStr })
         ]);
 
@@ -867,8 +871,8 @@ const verifyOTP = async (email, otp) => {
             const failedAttemptUser = await userModel.findOneAndUpdate(
                 { _id: userIdStr, otpAttempts: currentAttempts },
                 { $inc: { otpAttempts: 1 } },
-                { new: true }
-            );
+                { new: true, projection: { otpAttempts: 1 } }
+            ).lean();
 
             // A concurrent request already incremented otpAttempts.
             if (!failedAttemptUser) {
@@ -935,7 +939,7 @@ const verifyOTP = async (email, otp) => {
                 }
             },
             { new: true }
-        );
+        ).lean();
 
         // If updatedUserDoc is null, another concurrent request already verified and burned the OTP
         if (!updatedUserDoc) {
@@ -980,13 +984,13 @@ const refreshToken = async (oldRefreshToken) => {
 
         // 2. Hash refresh token and check if it exists in DB
         const hashRefreshToken = secureHash(oldRefreshToken);
-        const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken });
+        const tokenDoc = await refreshTokenModel.findOne({ token: hashRefreshToken }).lean();
         if (!tokenDoc) {
             throw new ApiError(403, 'Session expired or invalid. Please sign in again.');
         }
 
         // 3. Verify User exists & Check Block Status
-        let user = await userModel.findById(tokenDoc.userId);
+        let user = await userModel.findById(tokenDoc.userId).select('isBlocked blockReason blockExpiresAt tokenVersion').lean();
         if (!user) {
             throw new ApiError(404, 'No account found with this email address.');
         }
@@ -1012,20 +1016,21 @@ const refreshToken = async (oldRefreshToken) => {
 
         // 5. ATOMIC ROTATION:
         // Try to atomically claim rotation ONLY if isRotated is still false in DB!
-        const rotatedTokenDoc = await refreshTokenModel.findOneAndUpdate(
+        const result = await refreshTokenModel.updateOne(
             { _id: tokenDoc._id, isRotated: false },
             {
                 $set: {
                     isRotated: true,
                     rotatedAt: now
                 }
-            },
-            { new: true }
+            }
         );
+
+        const isUpdated = result.modifiedCount > 0;
 
         // Concurrent request rotated it in that exact millisecond!
         // We gracefully treat this request as within the grace period.
-        if (!rotatedTokenDoc) {
+        if (!isUpdated) {
             return { user, rememberMe, isGracePeriod: true, familyId };
         }
 
@@ -1073,7 +1078,7 @@ const getSessions = async (userId, currentRefreshToken) => {
 
             return {
                 id: doc._id.toString(),
-                familyId: (doc.familyId || doc._id).toString(),
+                familyId: doc.familyId.toString(),
                 ip: doc.ip || 'Unknown IP',
                 device: device || 'Desktop',
                 browser: browser || 'Unknown Browser',
@@ -1104,12 +1109,12 @@ const revokeSession = async (userId, sessionId, currentAccessToken, currentRefre
             throw new ApiError(400, 'Invalid session ID format.');
         }
 
-        const session = await refreshTokenModel.findOne({ _id: sessionId, userId });
+        const session = await refreshTokenModel.findOne({ _id: sessionId, userId }).select('familyId token').lean();
         if (!session) {
             throw new ApiError(404, 'Session not found or already terminated.');
         }
 
-        const targetFamilyId = (session.familyId || session._id).toString();
+        const targetFamilyId = (session.familyId).toString();
         let isCurrent = false;
 
         // Check if the session being revoked matches the current active session family
@@ -1121,7 +1126,7 @@ const revokeSession = async (userId, sessionId, currentAccessToken, currentRefre
         }
 
         // Delete all tokens belonging to this session family and clear Redis session cache
-        await refreshTokenModel.deleteMany({ familyId: session.familyId || session._id });
+        await refreshTokenModel.deleteMany({ familyId: session.familyId});
         await safeRedis.del(REDIS_KEYS.session(targetFamilyId));
 
         // Add the access token in blacklist
