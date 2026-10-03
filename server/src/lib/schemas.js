@@ -43,7 +43,9 @@ export const sendOtpSchema = z.object({
 
 export const updateProfileSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters long.').max(50, 'Name cannot exceed 50 characters.').optional(),
-    alwaysRequireOtp: z.boolean().optional()
+    settings: z.object({
+        alwaysRequireOtp: z.boolean().optional()
+    }).optional()
 });
 
 export const googleAuthSchema = z.object({

@@ -70,7 +70,7 @@ export const authenticate = async (req, res, next) => {
             isSessionActive = await safeRedis.exists(REDIS_KEYS.session(decoded.familyId));
             if (!isSessionActive) {
                 // Fallback: Query MongoDB if Redis reported false/offline
-                const sessionDoc = await refreshTokenModel.exists({ familyId: decoded.familyId });
+                const sessionDoc = await refreshTokenModel.findOne({ familyId: decoded.familyId, isRotated: false }).select({ _id: 0, familyId: 1 }).lean();
                 isSessionActive = Boolean(sessionDoc);
 
                 if (isSessionActive) {
