@@ -114,14 +114,11 @@ const login = async (email, password) => {
         }
 
         // 6. Update Last Login atomically in MongoDB & sync to Redis User Profile Bucket
-        await userModel.updateOne(
-            { _id: currentUser._id },
-            { $set: { lastLogin: now } }
-        );
-        currentUser.lastLogin = now;
-
-        // Keep lastLogin fresh in Redis Profile Bucket (stored as ISO string for audit/frontend)
         await Promise.all([
+            userModel.updateOne(
+                { _id: currentUser._id },
+                { $set: { lastLogin: now } }
+            ),
             safeRedis.set(REDIS_KEYS.emailToId(currentUser.email), userIdStr, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000),
             safeRedis.setJson(REDIS_KEYS.userProfile(userIdStr), {
                 _id: userIdStr,
@@ -134,6 +131,7 @@ const login = async (email, password) => {
                 settings: currentUser.settings
             }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
         ])
+        currentUser.lastLogin = now;
 
         return { user: currentUser, is2FAEnabled: false };
     }
@@ -1059,7 +1057,7 @@ const getSessions = async (userId, currentRefreshToken) => {
         const tokenDocs = await refreshTokenModel.find({
             userId,
             isRotated: false
-        }).sort({ lastActive: -1, createdAt: -1 }).lean();
+        }).sort({ lastActive: -1 }).lean();
 
         const sessions = tokenDocs.map((doc) => {
             const isCurrent = Boolean(currentTokenHash && doc.token === currentTokenHash);
@@ -1126,7 +1124,7 @@ const revokeSession = async (userId, sessionId, currentAccessToken, currentRefre
         }
 
         // Delete all tokens belonging to this session family and clear Redis session cache
-        await refreshTokenModel.deleteMany({ familyId: session.familyId});
+        await refreshTokenModel.deleteMany({ familyId: session.familyId });
         await safeRedis.del(REDIS_KEYS.session(targetFamilyId));
 
         // Add the access token in blacklist

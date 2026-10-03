@@ -1,11 +1,10 @@
 import mongoose from 'mongoose';
 import { CONSTANTS } from '../config/constants.js';
 
-const RefreshTokenModel = mongoose.Schema({
+const refreshTokenModel = mongoose.Schema({
     token: {
         type: String,
-        required: true,
-        unique: true
+        required: true
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -14,8 +13,7 @@ const RefreshTokenModel = mongoose.Schema({
     },
     familyId: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        index: true
+        required: true
     },
     isRotated: {
         type: Boolean,
@@ -56,10 +54,10 @@ const RefreshTokenModel = mongoose.Schema({
     }
 }, { timestamps: true });
 
-refreshTokenSchema.index({ token: 1, familyId: 1 });
-refreshTokenSchema.index({ userId: 1, familyId: 1 });
-refreshTokenSchema.index({ userId: 1, isRotated: 1, lastActive: -1 });
-refreshTokenSchema.index({ familyId: 1, isRotated: 1 });
+refreshTokenModel.index({ token: 1, familyId: 1 });
+refreshTokenModel.index({ userId: 1, familyId: 1 });
+refreshTokenModel.index({ userId: 1, isRotated: 1, lastActive: -1 });
+refreshTokenModel.index({ familyId: 1, isRotated: 1 });
 
 
-export default mongoose.model('refreshToken', RefreshTokenModel);
+export default mongoose.model('refreshToken', refreshTokenModel);
