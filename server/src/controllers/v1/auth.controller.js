@@ -284,7 +284,6 @@ const refreshAccessToken = async (req, res, next) => {
     }
 }
 
-
 const getSessions = async (req, res, next) => {
     try {
         const currentRefreshToken = getRefreshToken(req);
@@ -306,8 +305,9 @@ const revokeSession = async (req, res, next) => {
             throw new ApiError(400, 'Session ID is required.');
         }
 
+        const currentAccessToken = getAccessToken(req);
         const currentRefreshToken = getRefreshToken(req);
-        const { isCurrent } = await authService.revokeSession(req.user, sessionId, currentRefreshToken);
+        const { isCurrent } = await authService.revokeSession(req.user, sessionId, currentAccessToken, currentRefreshToken);
 
         if (isCurrent) {
             clearTokenCookies(res);
