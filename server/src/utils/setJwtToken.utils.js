@@ -72,10 +72,14 @@ export const generateResetToken = async function (userId) {
     const secret_key = process.env.JWT_RESET_KEY || 'default-key';
     try {
         let reset_token = jwt.sign({ _id: userId }, secret_key, {
-            expiresIn: CONSTANTS.OTP.RESET_TOKEN
+            expiresIn: CONSTANTS.RESET_TOKEN.EXPIRY
         });
 
-        console.log(`Reset Token generated for ${CONSTANTS.OTP.RESET_TOKEN}`);
+        console.log(`Reset Token generated for ${CONSTANTS.RESET_TOKEN.EXPIRY}`);
+
+        // Cache token in Redis with TTL matching token expiration
+        const ttlSeconds = Math.floor(CONSTANTS.RESET_TOKEN.EXPIRY_MS / 1000);
+        await safeRedis.set(REDIS_KEYS.userResetToken(userId.toString()), reset_token, ttlSeconds);
 
         return reset_token;
     } catch (error) {

@@ -37,7 +37,7 @@ export const authenticate = async (req, res, next) => {
         } else {
             // Fallback: Query MongoDB if Redis missed or profile had no tokenVersion
             const userData = await userModel.findById(decoded._id).select({
-                name: 1, email: 1, isVerified: 1, lastLogin: 1, tokenVersion: 1, googleLogin: 1, settings: 1, resetToken: 1
+                name: 1, email: 1, isVerified: 1, lastLogin: 1, tokenVersion: 1, googleLogin: 1, settings: 1
             }).lean();
 
             if (!userData) {
@@ -55,8 +55,7 @@ export const authenticate = async (req, res, next) => {
                 lastLogin: userData.lastLogin ? new Date(userData.lastLogin).toISOString() : null,
                 tokenVersion: userData.tokenVersion,
                 googleLogin: userData.googleLogin,
-                settings: userData.settings,
-                resetToken: userData.resetToken
+                settings: userData.settings
             });
         }
 

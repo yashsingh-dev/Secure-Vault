@@ -162,8 +162,7 @@ const login = async (email, password) => {
             lastLogin: new Date(now).toISOString(),
             tokenVersion: currentUser.tokenVersion,
             googleLogin: currentUser.googleLogin,
-            settings: currentUser.settings,
-            resetToken: currentUser.resetToken
+            settings: currentUser.settings
         });
 
         return { user: currentUser, is2FAEnabled: false };
@@ -235,8 +234,7 @@ const register = async (name, email, password) => {
                 lastLogin: null,
                 tokenVersion: new_user.tokenVersion || 0,
                 googleLogin: false,
-                settings: new_user.settings || { alwaysRequireOtp: false },
-                resetToken: null
+                settings: new_user.settings || { alwaysRequireOtp: false }
             }),
 
             // 3. User Block Bucket (Initial clean state)
@@ -343,8 +341,7 @@ const googleAuth = async (code) => {
                         lastLogin: null,
                         tokenVersion: new_user.tokenVersion || 0,
                         googleLogin: true,
-                        settings: new_user.settings || { alwaysRequireOtp: false },
-                        resetToken: null
+                        settings: new_user.settings || { alwaysRequireOtp: false }
                     }),
                     safeRedis.setJson(REDIS_KEYS.userBlock(newUserIdStr), {
                         isBlocked: false,
@@ -502,8 +499,7 @@ const googleAuth = async (code) => {
             lastLogin: new Date(now).toISOString(),
             tokenVersion: currentUser.tokenVersion,
             googleLogin: currentUser.googleLogin,
-            settings: currentUser.settings,
-            resetToken: currentUser.resetToken
+            settings: currentUser.settings
         });
 
         return {
@@ -747,83 +743,145 @@ const sendOTP = async (email) => {
 
 const resetPassword = async (email, password, token) => {
     try {
-
+        let user = null;
         const now = Date.now();
 
-        // 1. Check User
-        let user = await userModel.findOne({ email });
-        if (!user) {
-            throw new ApiError(404, 'No account found with this email address.');
+        // 1. Fetch userId: Check Redis first, fallback to MongoDB
+        let userIdStr = await safeRedis.get(REDIS_KEYS.emailToId(email));
+
+        // Fetch Block bucket and Standalone Reset Token from Redis in parallel if userId is known
+        let [blockData, cachedResetToken] = userIdStr
+            ? await Promise.all([
+                safeRedis.getJson(REDIS_KEYS.userBlock(userIdStr)),
+                safeRedis.get(REDIS_KEYS.userResetToken(userIdStr))
+            ])
+            : [null, null];
+
+        // 2. SINGLE-READ FALLBACK:
+        // If ANY key missed in Redis, fetch from MongoDB once and only once.
+        if (!userIdStr || !blockData || !cachedResetToken) {
+            user = await userModel.findOne({ email }).lean();
+            if (!user) {
+                throw new ApiError(404, 'No account found with this email address.');
+            }
+
+            if (!userIdStr) {
+                userIdStr = user._id.toString();
+                await safeRedis.set(REDIS_KEYS.emailToId(email), userIdStr);
+            }
+
+            // Populate missing block data from in-memory user document
+            if (!blockData) {
+                blockData = {
+                    isBlocked: Boolean(user.isBlocked),
+                    blockReason: user.blockReason,
+                    blockedAt: user.blockedAt ? new Date(user.blockedAt).toISOString() : null,
+                    blockExpiresAt: user.blockExpiresAt ? new Date(user.blockExpiresAt).getTime() : null
+                };
+                await safeRedis.setJson(REDIS_KEYS.userBlock(userIdStr), blockData);
+            }
+
+            // Populate missing reset token from in-memory user document
+            if (!cachedResetToken) {
+                cachedResetToken = user.resetToken;
+                if (cachedResetToken) {
+                    const ttl = Math.floor(CONSTANTS.RESET_TOKEN.EXPIRY_MS / 1000);
+                    await safeRedis.set(REDIS_KEYS.userResetToken(userIdStr), cachedResetToken, ttl);
+                }
+            }
         }
 
-        // 2. Check if Google Auth
-        if (user.googleLogin) {
+        // 3. Fast Block Status Check (Same as verifyOTP - do not auto-unblock here for performance)
+        if (blockData && blockData.isBlocked && blockData.blockExpiresAt > now) {
+            throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(blockData.blockExpiresAt)} due to ${blockData.blockReason}.`);
+        }
+
+        // 4. Check if Google Auth
+        let isGoogleLogin = false;
+        if (user) {
+            isGoogleLogin = Boolean(user.googleLogin);
+        } else {
+            const cachedProfile = await safeRedis.getJson(REDIS_KEYS.userProfile(userIdStr));
+            if (cachedProfile) {
+                isGoogleLogin = Boolean(cachedProfile.googleLogin);
+            } else {
+                // Fetch just googleLogin if neither RAM nor Redis had profile
+                const freshDoc = await userModel.findById(userIdStr).select({ googleLogin: 1 }).lean();
+                isGoogleLogin = Boolean(freshDoc?.googleLogin);
+            }
+        }
+        if (isGoogleLogin) {
             throw new ApiError(403, 'This account was registered using Google. Please sign in with Google.');
         }
 
-        // 3. Check Account Blocked
-        if (user.isBlocked) {
-            if (user.blockExpiresAt > now) {
-                throw new ApiError(403, `Your account is temporarily locked for ${formatTimeRemaining(user.blockExpiresAt)} due to ${user.blockReason}.`);
-            }
-
-            // Unblock atomically if expired
-            await userModel.updateOne(
-                { _id: user._id, isBlocked: true },
-                {
-                    $set: {
-                        isBlocked: false,
-                        blockReason: null,
-                        blockedAt: null,
-                        blockExpiresAt: null
-                    }
-                }
-            );
-            user.isBlocked = false;
-        }
-
-        // 4. Check for token existence and match
-        if (!user.resetToken || user.resetToken !== token) {
-            throw new ApiError(401, 'Invalid or expired password reset link.');
-        }
-
-        // 5. Verify Token Cryptographically
+        // 5. Verify Token Cryptographically with JWT
         const secret_key = process.env.JWT_RESET_KEY || 'default-key';
-        const decoded = jwt.verify(token, secret_key);
-        if (decoded._id !== user._id.toString()) {
+        let decoded;
+        try {
+            decoded = jwt.verify(token, secret_key);
+        } catch (jwtError) {
+            // If token expired, clean up both MongoDB and Redis
+            await Promise.all([
+                userModel.updateOne({ _id: userIdStr, resetToken: token }, { $set: { resetToken: null, resetTokenExpiry: null } }),
+                safeRedis.del(REDIS_KEYS.userResetToken(userIdStr))
+            ]);
+            throw new ApiError(401, 'This password reset link has expired or is invalid.');
+        }
+
+        if (decoded._id !== userIdStr) {
             throw new ApiError(401, 'Invalid or expired password reset link.');
         }
 
-        // 6. Encrypt Password
+        // 6. Check Token Match against Redis / Document
+        if (!cachedResetToken || cachedResetToken !== token) {
+            throw new ApiError(401, 'Invalid or expired password reset link.');
+        }
+
+        // 7. Encrypt New Password
         const hash_password = await createHash(password);
 
-        // 7. Atomic "Claim & Burn" Update:
-        // Only succeeds if resetToken is STILL exactly equal to the token!
-        // This guarantees strict single-use even if concurrent requests arrive.
-        const updatedUser = await userModel.findOneAndUpdate(
-            {
-                _id: user._id,
-                resetToken: token
-            },
-            {
-                $set: {
-                    password: hash_password,
-                    resetToken: null
+        // 8. Fetch active sessions to invalidate from Redis before deleting from DB
+        let sessionKeys = [];
+        try {
+            const activeSessions = await refreshTokenModel.find({ userId: userIdStr }).select({ familyId: 1 }).lean();
+            sessionKeys = activeSessions
+                .map(s => s.familyId ? REDIS_KEYS.session(s.familyId.toString()) : null)
+                .filter(Boolean);
+        } catch (err) {
+            console.error('[ResetPassword Fetch Sessions Warning]:', err.message);
+        }
+
+        // 9. Atomic "Claim & Burn" Update:
+        // Guarantees strict single-use even if concurrent requests arrive.
+        const [updatedUser] = await Promise.all([
+            userModel.findOneAndUpdate(
+                {
+                    _id: userIdStr,
+                    resetToken: token
                 },
-                $inc: { tokenVersion: 1 }
-            },
-            { new: true }
-        );
+                {
+                    $set: {
+                        password: hash_password,
+                        resetToken: null,
+                        resetTokenExpiry: null
+                    },
+                    $inc: { tokenVersion: 1 }
+                },
+                { new: true }
+            ),
+            refreshTokenModel.deleteMany({ userId: userIdStr })
+        ]);
 
         if (!updatedUser) {
             throw new ApiError(401, 'This password reset link has already been used or expired.');
         }
 
-        // 8. Revoke all active refresh token sessions for this user in DB (Source of Truth)
-        await refreshTokenModel.deleteMany({ userId: user._id });
-
-        // 9. Redis Cache Invalidation
-        await safeRedis.del(REDIS_KEYS.userTokenVersion(user._id.toString()));
+        // 10. Concurrently clean Redis: Delete standalone resetToken, purge all sessions, and update userProfile
+        await Promise.all([
+            safeRedis.del(REDIS_KEYS.userResetToken(userIdStr)),
+            sessionKeys.length > 0 ? safeRedis.del(...sessionKeys) : Promise.resolve(),
+            safeRedis.updateUserProfile(userIdStr, { tokenVersion: updatedUser.tokenVersion })
+        ]);
 
         return { user: updatedUser };
     }
@@ -1027,8 +1085,7 @@ const verifyOTP = async (email, otp) => {
                 lastLogin: new Date(now).toISOString(),
                 tokenVersion: updatedUserDoc.tokenVersion || 0,
                 googleLogin: Boolean(updatedUserDoc.googleLogin),
-                settings: updatedUserDoc.settings || { alwaysRequireOtp: false },
-                resetToken: updatedUserDoc.resetToken || null
+                settings: updatedUserDoc.settings || { alwaysRequireOtp: false }
             })
         ]);
 

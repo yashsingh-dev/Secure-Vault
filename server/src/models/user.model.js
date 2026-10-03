@@ -38,20 +38,24 @@ const userModel = mongoose.Schema({
         default: null
     },
     lastLogin: {
-        type: Date
+        type: Date,
+        default: null
     },
     tokenVersion: {
         type: Number,
         default: 0
     },
     otp: {
-        type: Number
+        type: Number,
+        default: null
     },
     otpExpiry: {
-        type: Date
+        type: Date,
+        default: null
     },
     otpCoolDown: {
-        type: Date
+        type: Date,
+        default: null
     },
     otpAttempts: {
         type: Number,
@@ -68,7 +72,12 @@ const userModel = mongoose.Schema({
         }
     },
     resetToken: {
-        type: String
+        type: String,
+        default: null
+    },
+    resetTokenExpiry: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

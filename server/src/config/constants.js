@@ -25,5 +25,9 @@ export const CONSTANTS = {
     },
     PASSWORD: {
         MIN_LENGTH: 8,
+    },
+    RESET_TOKEN: {
+        EXPIRY: '10m',
+        EXPIRY_MS: 10 * 60 * 1000 // 10 minutes
     }
 };

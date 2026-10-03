@@ -167,10 +167,17 @@ const verifyOtpForReset = async (req, res, next) => {
 
         // Generate Reset Token
         const token = await generateResetToken(user._id);
-        await userModel.updateOne(
-            { _id: user._id },
-            { $set: { resetToken: token } }
-        );
+        const resetTokenExpiry = new Date(Date.now() + CONSTANTS.RESET_TOKEN.EXPIRY_MS);
+
+        await Promise.all([
+            userModel.updateOne(
+                { _id: user._id },
+                { $set: { resetToken: token, resetTokenExpiry } }
+            ),
+            
+            // Warm up Redis cache for emailToId
+            safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString())
+        ]);
 
         // Send Response
         return response(res, 200, 'Verification code verified successfully.', {

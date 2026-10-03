@@ -6,6 +6,7 @@ export const REDIS_KEYS = {
         USER_BLOCK: 'user:block',       // Bucket 1: Temporary lockout/block state
         USER_OTP: 'user:otp',           // Bucket 2: Transient OTP code, attempts, cooldown
         USER_PROFILE: 'user:profile',   // Bucket 3: User document / dashboard profile
+        USER_RESET_TOKEN: 'user:reset:token', // Bucket 4: Standalone password reset token
         EMAIL_LOOKUP: 'email:to:id'     // Secondary Index: email -> userId
     },
 
@@ -21,7 +22,10 @@ export const REDIS_KEYS = {
     // 3. Bucket 3: User Profile Document
     userProfile: (userId) => `${REDIS_KEYS.PREFIX.USER_PROFILE}:${userId}`,
 
-    // 4. Secondary Index: Email to User ID Lookup
+    // 4. Bucket 4: User Reset Token (Standalone Key)
+    userResetToken: (userId) => `${REDIS_KEYS.PREFIX.USER_RESET_TOKEN}:${userId}`,
+
+    // 5. Secondary Index: Email to User ID Lookup
     emailToId: (email) => `${REDIS_KEYS.PREFIX.EMAIL_LOOKUP}:${email.trim().toLowerCase()}`
 };
 
