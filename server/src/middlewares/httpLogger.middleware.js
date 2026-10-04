@@ -8,13 +8,18 @@ export const httpLogger = pinoHttp({
 
     // Production standard: Auto-log when a request finishes (status, duration, method)
     autoLogging: {
-        // Prevent frequent health-check pings from polluting logs
-        ignore: (req) => req.url === '/api/health' || req.url === '/health',
+        // Prevent OPTIONS preflight and frequent health-check pings from polluting logs
+        ignore: (req) => req.method === 'OPTIONS' || req.url === '/api/health' || req.url === '/health', 
     },
 
-    // 1. Log immediately when request arrives
+    // 1. Log immediately when request arrives (with request body only here)
     customReceivedMessage: (req) => {
         return `--> Incoming: ${req.method} ${req.originalUrl || req.url}`;
+    },
+    customReceivedObject: (req) => {
+        const body = req.raw?.body || req.body;
+        // Only attach body if it exists and has keys (POST/PUT/PATCH)
+        return body && Object.keys(body).length > 0 ? { body } : {};
     },
 
     // 2. Log when request completes
@@ -33,7 +38,7 @@ export const httpLogger = pinoHttp({
         return 'info';
     },
 
-    // Keep logs concise: avoid dumping 50+ lines of raw headers to the terminal
+    // Keep logs concise: avoid dumping 50+ lines of raw headers or body to all logs
     serializers: {
         req: (req) => ({
             id: req.id,
