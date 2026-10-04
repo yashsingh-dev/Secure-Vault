@@ -12,13 +12,18 @@ export const httpLogger = pinoHttp({
         ignore: (req) => req.url === '/api/health' || req.url === '/health',
     },
 
-    // Clean summary message for every request
+    // 1. Log immediately when request arrives
+    customReceivedMessage: (req) => {
+        return `--> Incoming: ${req.method} ${req.originalUrl || req.url}`;
+    },
+
+    // 2. Log when request completes
     customSuccessMessage: (req, res, responseTime) => {
-        return `${req.method} ${req.originalUrl || req.url} ${res.statusCode} (${responseTime}ms)`;
+        return `<-- Completed: ${req.method} ${req.originalUrl || req.url} ${res.statusCode} (${responseTime}ms)`;
     },
 
     customErrorMessage: (req, res, err) => {
-        return `${req.method} ${req.originalUrl || req.url} failed with ${res.statusCode}: ${err.message}`;
+        return `<-- Failed: ${req.method} ${req.originalUrl || req.url} ${res.statusCode}: ${err.message}`;
     },
 
     // Automatically elevate log severity based on HTTP status code
