@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger.js';
+
 /**
  * Parses user agent and request data to extract client metadata (device, browser, OS, IP).
  */
@@ -6,7 +8,6 @@ export const parseClientMeta = (req) => {
     
     // Extract IP address (handles proxies, x-forwarded-for, IPv6 localhost)
     let ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || 'Unknown IP';
-    console.log("User IP: ", ip);
     if (typeof ip === 'string') {
         ip = ip.split(',')[0].trim();
         if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') {
@@ -17,6 +18,8 @@ export const parseClientMeta = (req) => {
     }
 
     const { os, browser, device } = parseUserAgent(userAgent);
+
+    logger.debug({ ip, device, browser, os }, 'Client device and network metadata parsed');
 
     return {
         ip,

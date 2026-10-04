@@ -13,6 +13,7 @@ import REDIS_KEYS from "../../config/redisKeys.js";
 import { parseUserAgent } from "../../utils/device.utils.js";
 import mongoose from "mongoose";
 import { checkUserBlock } from "../../utils/authCore.utils.js";
+import { logger } from "../../lib/logger.js";
 
 const login = async (email, password) => {
     // 1. Find User in MongoDB (Source of Truth for sensitive password hash)
@@ -407,7 +408,7 @@ const logout = async (accessToken, refreshToken) => {
                 await safeRedis.del(REDIS_KEYS.session(targetFamilyId.toString()));
             }
         } catch (err) {
-            console.error('[Logout Session Revoke Error]:', err.message);
+            logger.warn({ err: err.message }, 'Failed to revoke refresh token session during logout');
         }
     }
 
@@ -459,7 +460,7 @@ const logoutAll = async (accessToken, refreshToken, authenticatedUserId = null, 
             )
         ];
     } catch (err) {
-        console.error('[LogoutAll Fetch Sessions Warning]:', err.message);
+        logger.warn({ userId: userIdStr, err: err.message }, 'Failed to fetch active sessions during logout-all operation');
     }
 
     // 3. Delete all sessions in MongoDB, sync Redis userProfile, and delete session keys
@@ -679,7 +680,7 @@ const resetPassword = async (email, password, token) => {
             )
         ];
     } catch (err) {
-        console.error('[ResetPassword Fetch Sessions Warning]:', err.message);
+        logger.warn({ userId: userIdStr, err: err.message }, 'Failed to fetch active sessions during password reset session invalidation');
     }
 
     // 9. Atomic "Claim & Burn" Update:

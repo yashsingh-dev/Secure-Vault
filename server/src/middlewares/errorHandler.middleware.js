@@ -1,4 +1,5 @@
-import response from '../utils/response.utils.js'
+import response from '../utils/response.utils.js';
+import { logger } from '../lib/logger.js';
 
 const errorHandler = (err, req, res, next) => {
     let statusCode = err.statusCode || 500;
@@ -35,7 +36,20 @@ const errorHandler = (err, req, res, next) => {
         message = err.issues?.[0]?.message || 'Validation failed.';
     }
 
-    console.log(`[${statusCode}] Global Error: ${message}`);
+    const logContext = {
+        statusCode,
+        errName: err.name,
+        errCode: err.code || undefined,
+        ...(statusCode >= 500 ? { stack: err.stack } : {})
+    };
+
+    const activeLogger = req?.log || logger;
+
+    if (statusCode >= 500) {
+        activeLogger.error(logContext, `Internal server error: ${message}`);
+    } else {
+        activeLogger.warn(logContext, `Client request failed (${statusCode}): ${message}`);
+    }
 
     return response(res, statusCode, message);
 }

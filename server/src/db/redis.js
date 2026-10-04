@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import REDIS_KEYS from '../config/redisKeys.js';
 import { CONSTANTS } from '../config/constants.js';
+import { logger } from '../lib/logger.js';
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
@@ -15,15 +16,15 @@ const redis = new Redis(redisUrl, {
 });
 
 redis.on('connect', () => {
-    console.log('Redis connected successfully.');
+    logger.info('Redis connection initiated');
 });
 
 redis.on('ready', () => {
-    console.log('Redis client is ready for commands.');
+    logger.info('Redis client initialized and ready for commands');
 });
 
 redis.on('error', (err) => {
-    console.error('Redis connection error:', err.message);
+    logger.error({ err: err.message }, 'Redis connection error encountered');
 });
 
 /**
@@ -42,7 +43,7 @@ export const safeRedis = {
             const value = await redis.get(key);
             return value !== null ? value : fallback;
         } catch (err) {
-            console.error(`[safeRedis.get Error] key="${key}":`, err.message);
+            logger.error({ key, err: err.message }, 'Failed to fetch key from Redis cache');
             return fallback;
         }
     },
@@ -62,7 +63,7 @@ export const safeRedis = {
             }
             return true;
         } catch (err) {
-            console.error(`[safeRedis.set Error] key="${key}":`, err.message);
+            logger.error({ key, err: err.message }, 'Failed to set key in Redis cache');
             return false;
         }
     },
@@ -79,7 +80,7 @@ export const safeRedis = {
             if (!raw) return fallback;
             return JSON.parse(raw);
         } catch (err) {
-            console.error(`[safeRedis.getJson Error] key="${key}":`, err.message);
+            logger.error({ key, err: err.message }, 'Failed to parse JSON payload from Redis cache');
             return fallback;
         }
     },
@@ -100,7 +101,7 @@ export const safeRedis = {
             }
             return true;
         } catch (err) {
-            console.error(`[safeRedis.setJson Error] key="${key}":`, err.message);
+            logger.error({ key, err: err.message }, 'Failed to serialize and store JSON payload in Redis cache');
             return false;
         }
     },
@@ -116,7 +117,7 @@ export const safeRedis = {
             const count = await redis.exists(key);
             return count > 0;
         } catch (err) {
-            console.error(`[safeRedis.exists Error] key="${key}":`, err.message);
+            logger.error({ key, err: err.message }, 'Failed to check key existence in Redis cache');
             return fallback;
         }
     },
@@ -133,7 +134,7 @@ export const safeRedis = {
             if (flattened.length === 0) return 0;
             return await redis.del(...flattened);
         } catch (err) {
-            console.error(`[safeRedis.del Error] keys="${keys.join(', ')}":`, err.message);
+            logger.error({ keys, err: err.message }, 'Failed to delete key(s) from Redis cache');
             return 0;
         }
     },
@@ -154,7 +155,7 @@ export const safeRedis = {
             }
             return false;
         } catch (err) {
-            console.error(`[safeRedis.updateUserProfile Error] userId="${userId}":`, err.message);
+            logger.error({ userId, err: err.message }, 'Failed to update cached user profile in Redis');
             return false;
         }
     }

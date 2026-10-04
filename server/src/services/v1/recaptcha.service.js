@@ -1,4 +1,5 @@
 import ApiError from '../../utils/ApiError.js';
+import { logger } from '../../lib/logger.js';
 
 const GOOGLE_VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify';
 // Google reCAPTCHA v2 tokens expire after 2 minutes (120 seconds)
@@ -29,7 +30,7 @@ const mapRecaptchaError = (errorCodes = []) => {
         };
     }
     if (errorCodes.includes('invalid-input-secret') || errorCodes.includes('missing-input-secret')) {
-        console.error('reCAPTCHA secret configuration error:', errorCodes);
+        logger.error({ errorCodes }, 'Google reCAPTCHA secret configuration error: invalid or missing secret key');
         return {
             statusCode: 500,
             message: 'Server security configuration error. Please contact the administrator.'
@@ -50,7 +51,7 @@ const mapRecaptchaError = (errorCodes = []) => {
 export const verifyRecaptchaToken = async (token, remoteIp) => {
     const secretKey = process.env.RECAPTCHA_SECRET_KEY;
     if (!secretKey) {
-        console.error('CRITICAL: RECAPTCHA_SECRET_KEY is not defined in environment variables.');
+        logger.fatal('Critical configuration failure: RECAPTCHA_SECRET_KEY is undefined in environment variables');
         throw new ApiError(500, 'reCAPTCHA service is not configured on the server.');
     }
 

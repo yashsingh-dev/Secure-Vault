@@ -1,10 +1,11 @@
 import resend from '../lib/resend.js';
 import { CONSTANTS } from '../config/constants.js';
+import { logger } from '../lib/logger.js';
 
 const sendOTPEmail = async (email, otp) => {
     try {
         if (CONSTANTS.OTP.TESTING) {
-            console.log('OTP:', otp);
+            logger.info({ email, otp }, 'Testing mode active: OTP generated without dispatching live email');
             return { success: true, data: { otp } };
         }
         const { data, error } = await resend.emails.send({
@@ -42,14 +43,14 @@ const sendOTPEmail = async (email, otp) => {
         });
 
         if (error) {
-            console.error('Resend Error:', error);
+            logger.error({ err: error, recipient: email }, 'Resend service rejected email dispatch request');
             return { success: false, error };
         }
 
         return { success: true, data };
 
     } catch (err) {
-        console.error('Email Sending Error:', err);
+        logger.error({ err: err.message, recipient: email }, 'Unexpected error encountered while dispatching email');
         return { success: false, error: err };
     }
 }

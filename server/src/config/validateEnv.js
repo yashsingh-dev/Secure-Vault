@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { logger } from '../lib/logger.js';
 
 /**
  * Required Environment Keys
@@ -54,28 +55,22 @@ export const validateEnv = () => {
 
     // Log warnings for optional keys
     if (missingOptional.length > 0) {
-        console.warn('\n⚠️  [ENV WARNING] The following optional environment variables are not set:');
-        for (const item of missingOptional) {
-            console.warn(`   • ${item.key}: using default "${item.default}"`);
-        }
-        console.warn('   (For production security, please configure dedicated values in your .env)\n');
+        logger.warn(
+            { missing: missingOptional.map(i => ({ key: i.key, fallback: i.default })) },
+            'Optional environment variables missing; fallback defaults applied'
+        );
     }
 
     // If required keys are missing, halt startup
     if (missingRequired.length > 0) {
-        console.error('\n' + '='.repeat(70));
-        console.error('❌ [ENV ERROR] CRITICAL: MISSING REQUIRED ENVIRONMENT VARIABLES');
-        console.error('='.repeat(70));
-        console.error('The server cannot start because the following required keys are missing in .env:');
-        for (const key of missingRequired) {
-            console.error(`   ✗ ${key}`);
-        }
-        console.error('\nPlease define these required variables in your server/.env file.');
-        console.error('='.repeat(70) + '\n');
+        logger.fatal(
+            { missingKeys: missingRequired },
+            'Critical environment configuration error: required variables missing. Halting process'
+        );
         process.exit(1);
     }
 
-    console.log('✅ Environment configuration validated successfully.');
+    logger.info('Environment configuration validated successfully');
 };
 
 // Automatically execute validation upon module load

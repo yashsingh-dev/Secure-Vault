@@ -5,6 +5,7 @@ import refreshTokenModel from '../models/refreshToken.model.js';
 import secureHash from './crypto.utils.js';
 import { safeRedis } from '../db/redis.js';
 import REDIS_KEYS from '../config/redisKeys.js';
+import { logger } from '../lib/logger.js';
 
 export const generateAccessToken = async function (userId, tokenVersion, familyId) {
     userId = userId.toString().trim();
@@ -27,7 +28,10 @@ export const generateAccessToken = async function (userId, tokenVersion, familyI
             expiresIn: CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN
         });
 
-        console.log(`Access Token generated for ${CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN}`);
+        logger.debug(
+            { userId, familyId, tokenVersion, expiresIn: CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN },
+            'JWT access token issued successfully'
+        );
 
         // Update tokenVersion in userProfile bucket
         await safeRedis.updateUserProfile(userId, { tokenVersion });
@@ -52,7 +56,11 @@ export const generateRefreshToken = async function (userId, rememberMe = false, 
             expiresIn: rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN
         });
 
-        console.log(`Refresh Token generated for ${rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN}`);
+        const lifespan = rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN;
+        logger.debug(
+            { userId, familyId, rememberMe, expiresIn: lifespan },
+            'JWT refresh token issued and session registered'
+        );
 
         // Generate hash of refresh token
         const hash_refresh_token = secureHash(refresh_token);
@@ -93,7 +101,10 @@ export const generateResetToken = async function (userId) {
             expiresIn: CONSTANTS.RESET_TOKEN.EXPIRY
         });
 
-        console.log(`Reset Token generated for ${CONSTANTS.RESET_TOKEN.EXPIRY}`);
+        logger.debug(
+            { userId, expiresIn: CONSTANTS.RESET_TOKEN.EXPIRY },
+            'Password reset token generated and cached in Redis'
+        );
 
         // Cache token in Redis with TTL matching token expiration
         const ttlSeconds = Math.floor(CONSTANTS.RESET_TOKEN.EXPIRY_MS / 1000);
