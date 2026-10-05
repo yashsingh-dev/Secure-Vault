@@ -8,13 +8,6 @@ import REDIS_KEYS from '../config/redisKeys.js';
 import { logger } from '../lib/logger.js';
 
 export const generateAccessToken = async function (userId, tokenVersion, familyId) {
-    userId = userId.toString().trim();
-    familyId = familyId.toString().trim();
-    tokenVersion = Number(tokenVersion);
-
-    if (!userId) throw new Error('User ID is required');
-    if (!familyId) throw new Error('Family ID is required');
-    if (isNaN(tokenVersion)) throw new Error('Token Version is required');
 
     const secret_key = process.env.JWT_ACCESS_KEY || 'default-key';
     try {
@@ -43,12 +36,6 @@ export const generateAccessToken = async function (userId, tokenVersion, familyI
 }
 
 export const generateRefreshToken = async function (userId, rememberMe = false, meta = {}, familyId) {
-    userId = userId.toString().trim();
-    familyId = familyId.toString().trim();
-    rememberMe = Boolean(rememberMe);
-
-    if (!userId) throw new Error('User ID is required');
-    if (!familyId) throw new Error('Family ID is required');
 
     const secret_key = process.env.JWT_REFRESH_KEY || 'default-key';
     try {
@@ -91,9 +78,6 @@ export const generateRefreshToken = async function (userId, rememberMe = false, 
 }
 
 export const generateResetToken = async function (userId) {
-    userId = userId.toString().trim();
-
-    if (!userId) throw new Error('User ID is required');
 
     const secret_key = process.env.JWT_RESET_KEY || 'default-key';
     try {
