@@ -593,7 +593,7 @@ const resetPassword = async (email, password, token) => {
 
     // 2. If ANY key missed in Redis, fetch from MongoDB once and only once.
     if (!userIdStr || !cachedResetToken) {
-
+        logger.debug({ email, missingUserId: !userIdStr, missingResetToken: !cachedResetToken }, 'Cache miss during password reset; falling back to MongoDB');
         user = await userModel.findOne({ email }).lean();
         if (!user) {
             throw new ApiError(404, 'No account found with this email address.');
@@ -746,7 +746,7 @@ const verifyOTP = async (email, otp) => {
 
     // 2. If user id key missed in Redis, fetch from MongoDB once and only once.
     if (!userIdStr) {
-
+        logger.debug({ email }, 'Cache miss for emailToId during OTP verification; falling back to MongoDB');
         user = await userModel.findOne({ email }).lean();
         if (!user) {
             throw new ApiError(404, 'No account found with this email address.');
@@ -846,6 +846,8 @@ const verifyOTP = async (email, otp) => {
                 safeRedis.del(REDIS_KEYS.userOtp(userIdStr))
             ]);
 
+            logger.warn({ userId: userIdStr, blockReason, blockExpiresAt: new Date(blockExpiresAt).toISOString() }, 'Account temporarily locked due to excessive failed OTP attempts');
+
             throw new ApiError(403, 'Too many incorrect attempts. Your account has been temporarily locked.');
         }
 
@@ -942,6 +944,7 @@ const refreshToken = async (oldRefreshToken) => {
             return { user, rememberMe, isGracePeriod: true, familyId };
         } else {
             // If used AFTER GRACE PERIOD, this is a REUSE ATTACK (stolen token)!
+            logger.warn({ userId: user._id, familyId: familyId.toString() }, 'Compromised refresh token reuse detected! Revoking entire session family');
             await refreshTokenModel.deleteMany({ familyId });
             await safeRedis.del(REDIS_KEYS.session(familyId.toString()));
             throw new ApiError(403, 'Compromised token detected. Please sign in again.');

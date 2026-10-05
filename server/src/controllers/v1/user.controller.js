@@ -3,6 +3,7 @@ import zod from '../../lib/schemas.js';
 import ApiError from '../../utils/ApiError.js';
 import response from '../../utils/response.utils.js';
 import asyncHandler from '../../utils/asyncHandler.utils.js';
+import { logger } from '../../lib/logger.js';
 
 const getProfile = asyncHandler(async (req, res) => {
     if (!req.user) {
@@ -25,6 +26,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     }
 
     const updatedProfile = await userService.updateProfile(req.user, req.body);
+    logger.info({ userId: req.user, updatedFields: Object.keys(req.body) }, 'User profile updated successfully');
     return response(res, 200, 'Profile updated successfully.', updatedProfile);
 });
 

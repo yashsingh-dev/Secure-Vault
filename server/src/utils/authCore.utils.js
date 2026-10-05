@@ -3,6 +3,7 @@ import ApiError from './ApiError.js';
 import { safeRedis } from '../db/redis.js';
 import REDIS_KEYS from '../config/redisKeys.js';
 import { formatTimeRemaining } from '../lib/time.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * Checks if a user is currently blocked, enforces lockout errors,
@@ -19,10 +20,12 @@ export const checkUserBlock = async (userId, userDoc = null) => {
     if (!userDoc) {
         const blockReason = await safeRedis.get(REDIS_KEYS.userBlock(userIdStr));
         if (blockReason) {
+            logger.warn({ userId: userIdStr, blockReason }, 'Account block enforced directly from Redis cache');
             throw new ApiError(403, `Your account is temporarily locked due to: ${blockReason}.`);
         }
 
         // Cache Miss - Fallback to database
+        logger.debug({ userId: userIdStr }, 'User block cache miss; checking status in MongoDB');
         userDoc = await userModel.findById(userIdStr).select({ isBlocked: 1, blockExpiresAt: 1, blockReason: 1 }).lean();
         if (!userDoc) {
             throw new ApiError(404, 'User account no longer exists.');
@@ -57,6 +60,7 @@ export const checkUserBlock = async (userId, userDoc = null) => {
         ]);
 
         if (unblockedUser) {
+            logger.info({ userId: userIdStr }, 'User temporary lock expired; account automatically unblocked');
             if (userDoc.password && !unblockedUser.password) {
                 unblockedUser.password = userDoc.password;
             }

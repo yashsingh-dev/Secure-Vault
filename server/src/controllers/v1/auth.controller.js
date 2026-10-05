@@ -11,6 +11,7 @@ import userModel from '../../models/user.model.js';
 import asyncHandler from '../../utils/asyncHandler.utils.js';
 import { safeRedis } from '../../db/redis.js';
 import REDIS_KEYS from '../../config/redisKeys.js';
+import { logger } from '../../lib/logger.js';
 
 
 const login = asyncHandler(async (req, res) => {
@@ -32,6 +33,10 @@ const login = asyncHandler(async (req, res) => {
         // Set Cookie
         setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
         setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+
+        logger.info({ userId: user._id, email: user.email, familyId: familyId.toString() }, 'User authenticated and session issued');
+    } else {
+        logger.info({ userId: user._id, email: user.email }, 'User credentials verified; 2FA OTP challenge required');
     }
 
     // Send Response
@@ -46,6 +51,8 @@ const register = asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
 
     const { user } = await authService.register(name, email, password);
+
+    logger.info({ userId: user._id, email: user.email }, 'New user account created successfully');
 
     // Send Response
     return response(res, 201, 'Account registered successfully.', {
@@ -73,6 +80,10 @@ const googleAuth = asyncHandler(async (req, res) => {
         // Set Cookie
         setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
         setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+
+        logger.info({ userId: user._id, email: user.email, familyId: familyId.toString() }, 'User authenticated via Google OAuth and session issued');
+    } else {
+        logger.info({ userId: user._id, email: user.email }, 'Google OAuth verified; 2FA OTP challenge required');
     }
 
     // Send Response
@@ -88,6 +99,8 @@ const resetPassword = asyncHandler(async (req, res) => {
 
     const { user } = await authService.resetPassword(email, password, token);
 
+    logger.info({ userId: user._id, email: user.email }, 'Password successfully reset and all prior sessions invalidated');
+
     // Send Response
     return response(res, 200, 'Your password has been reset successfully.', {
         id: user._id,
@@ -99,6 +112,8 @@ const sendOTP = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
     const { user } = await authService.sendOTP(email);
+
+    logger.info({ userId: user._id, email }, 'OTP dispatched for authentication');
 
     // Send Response
     return response(res, 200, 'Verification code sent to your email.', {
@@ -125,6 +140,8 @@ const verifyOTP = asyncHandler(async (req, res) => {
     setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
     setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
+    logger.info({ userId: user._id, email: user.email, familyId: familyId.toString() }, 'OTP successfully verified and session established');
+
     // Send Response
     return response(res, 200, 'Verification code verified successfully.', {
         id: user._id,
@@ -150,6 +167,8 @@ const verifyOtpForReset = asyncHandler(async (req, res) => {
         // Warm up Redis cache for emailToId
         safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString(), CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
     ]);
+
+    logger.info({ userId: user._id, email: user.email }, 'OTP verified for password reset; reset token generated');
 
     // Send Response
     return response(res, 200, 'Verification code verified successfully.', {
@@ -181,6 +200,7 @@ const logout = asyncHandler(async (req, res) => {
 
     // Always Clear Cookies and return success
     clearTokenCookies(res);
+    logger.info({ hasAccessToken: Boolean(accessToken), hasRefreshToken: Boolean(refreshToken) }, 'User signed out and session cookies cleared');
     return response(res, 200, 'Signed out successfully.');
 });
 
@@ -193,6 +213,7 @@ const logoutAll = asyncHandler(async (req, res) => {
 
     try {
         await authService.logoutAll(accessToken, refreshToken, userId, currentTokenVersion);
+        logger.info({ userId }, 'User signed out from all devices; sessions revoked');
     } finally {
         clearTokenCookies(res);
     }
@@ -226,6 +247,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             // Set Cookie
             setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, newAccessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
             setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, newRefreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
+
+            logger.info({ userId: user._id, familyId: familyId.toString() }, 'Tokens successfully rotated and session renewed');
+        } else {
+            logger.info({ userId: user._id, familyId: familyId.toString() }, 'Refresh token request handled within grace period window');
         }
 
         // Send Response (Grace period requests return 201 so frontend interceptor proceeds with already-set cookies)
@@ -259,6 +284,8 @@ const revokeSession = asyncHandler(async (req, res) => {
     if (isCurrent) {
         clearTokenCookies(res);
     }
+
+    logger.info({ userId: req.user, sessionId, isCurrent }, 'Specific user session revoked');
 
     return response(res, 200, isCurrent ? 'Current session revoked successfully.' : 'Session revoked successfully.', {
         isCurrent

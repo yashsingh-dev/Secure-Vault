@@ -7,6 +7,7 @@ import { clearToken, clearTokenCookies, getAccessToken } from '../utils/setCooki
 import { safeRedis } from '../db/redis.js';
 import { CONSTANTS } from '../config/constants.js';
 import REDIS_KEYS from '../config/redisKeys.js';
+import { logger } from '../lib/logger.js';
 
 export const authenticate = async (req, res, next) => {
     try {
@@ -36,6 +37,7 @@ export const authenticate = async (req, res, next) => {
             activeTokenVersion = parseInt(cachedProfile.tokenVersion, 10);
         } else {
             // Fallback: Query MongoDB if Redis missed or profile had no tokenVersion
+            logger.warn({ userId: decoded._id }, 'Redis profile cache miss; falling back to MongoDB');
             const userData = await userModel.findById(decoded._id).select({
                 name: 1, email: 1, isVerified: 1, lastLogin: 1, tokenVersion: 1, googleLogin: 1, settings: 1
             }).lean();
@@ -57,9 +59,11 @@ export const authenticate = async (req, res, next) => {
                 googleLogin: userData.googleLogin,
                 settings: userData.settings
             }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
+            logger.debug({ userId: decoded._id }, 'Self-healed Redis user profile cache from MongoDB');
         }
 
         if (activeTokenVersion !== decoded.tokenVersion) {
+            logger.warn({ userId: decoded._id, activeTokenVersion, tokenVersion: decoded.tokenVersion }, 'Token version mismatch detected; terminating session');
             clearTokenCookies(res);
             throw new ApiError(401, 'Session has ended. Please sign in again.');
         }
@@ -70,6 +74,7 @@ export const authenticate = async (req, res, next) => {
             isSessionActive = await safeRedis.exists(REDIS_KEYS.session(decoded.familyId));
             if (!isSessionActive) {
                 // Fallback: Query MongoDB if Redis reported false/offline
+                logger.warn({ familyId: decoded.familyId }, 'Redis session cache miss; checking active session in MongoDB');
                 const sessionDoc = await refreshTokenModel.findOne({ familyId: decoded.familyId, isRotated: false }).select({ _id: 0, familyId: 1 }).lean();
                 isSessionActive = Boolean(sessionDoc);
 
@@ -77,10 +82,12 @@ export const authenticate = async (req, res, next) => {
                     // Self-heal Redis session cache with refresh token TTL
                     const sessionTtl = Math.floor(CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
                     await safeRedis.set(REDIS_KEYS.session(decoded.familyId), '1', sessionTtl);
+                    logger.debug({ familyId: decoded.familyId }, 'Self-healed Redis session cache from MongoDB');
                 }
             }
 
             if (!isSessionActive) {
+                logger.warn({ familyId: decoded.familyId }, 'Revoked or expired session accessed; clearing credentials');
                 clearTokenCookies(res);
                 throw new ApiError(401, 'Session has been revoked. Please sign in again.');
             }
