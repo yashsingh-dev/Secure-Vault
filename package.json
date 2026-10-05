@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "test:server": "npm run test --prefix server"
   },
   "repository": {
     "type": "git",
@@ -17,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/yashsingh-dev/Secure-Vault/issues"
   },
-  "homepage": "https://github.com/yashsingh-dev/Secure-Vault#readme"
+  "homepage": "https://github.com/yashsingh-dev/Secure-Vault#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
 }
