@@ -9,10 +9,14 @@ describe('Unit: setJwtToken.utils', () => {
     const mockTokenVersion = 2;
     const mockFamilyId = 'fam-uuid-1234';
 
+    let updateUserProfileSpy;
+    let setRedisSpy;
+    let createRefreshTokenSpy;
+
     beforeEach(() => {
-        vi.spyOn(safeRedis, 'updateUserProfile').mockResolvedValue(true);
-        vi.spyOn(safeRedis, 'set').mockResolvedValue(true);
-        vi.spyOn(refreshTokenModel, 'create').mockResolvedValue({});
+        updateUserProfileSpy = vi.spyOn(safeRedis, 'updateUserProfile').mockResolvedValue(true);
+        setRedisSpy = vi.spyOn(safeRedis, 'set').mockResolvedValue(true);
+        createRefreshTokenSpy = vi.spyOn(refreshTokenModel, 'create').mockResolvedValue({});
     });
 
     describe('generateAccessToken', () => {
@@ -27,36 +31,30 @@ describe('Unit: setJwtToken.utils', () => {
         });
 
         it('should sync tokenVersion to safeRedis.updateUserProfile', async () => {
-            const spy = vi.spyOn(safeRedis, 'updateUserProfile').mockResolvedValue(true);
             await generateAccessToken(mockUserId, mockTokenVersion, mockFamilyId);
 
-            expect(spy).toHaveBeenCalledWith(mockUserId, { tokenVersion: mockTokenVersion });
+            expect(updateUserProfileSpy).toHaveBeenCalledWith(mockUserId, { tokenVersion: mockTokenVersion });
         });
     });
 
     describe('generateRefreshToken', () => {
         it('should generate a refresh token and store session presence in Redis and MongoDB', async () => {
-            const redisSpy = vi.spyOn(safeRedis, 'set').mockResolvedValue(true);
-            const mongoSpy = vi.spyOn(refreshTokenModel, 'create').mockResolvedValue({});
-
             const token = await generateRefreshToken(mockUserId, false, { ip: '127.0.0.1' }, mockFamilyId);
 
             expect(typeof token).toBe('string');
-            expect(mongoSpy).toHaveBeenCalled();
-            expect(redisSpy).toHaveBeenCalled();
+            expect(createRefreshTokenSpy).toHaveBeenCalled();
+            expect(setRedisSpy).toHaveBeenCalled();
         });
     });
 
     describe('generateResetToken', () => {
         it('should generate a reset token and store in Redis', async () => {
-            const redisSpy = vi.spyOn(safeRedis, 'set').mockResolvedValue(true);
-
             const token = await generateResetToken(mockUserId);
 
             expect(typeof token).toBe('string');
             const decoded = jwt.verify(token, process.env.JWT_RESET_KEY);
             expect(decoded._id).toBe(mockUserId);
-            expect(redisSpy).toHaveBeenCalled();
+            expect(setRedisSpy).toHaveBeenCalled();
         });
     });
 });
