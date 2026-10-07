@@ -9,10 +9,15 @@ describe('Unit: sendMail.utils', () => {
     });
 
     it('should return success in testing mode without calling Resend API', async () => {
+        const originalTesting = CONSTANTS.OTP.TESTING;
+        CONSTANTS.OTP.TESTING = true;
+
         const res = await sendOTPEmail('test@example.com', '123456');
 
         expect(res.success).toBe(true);
         expect(res.data.otp).toBe('123456');
+
+        CONSTANTS.OTP.TESTING = originalTesting;
     });
 
     it('should call resend.emails.send if CONSTANTS.OTP.TESTING is false', async () => {
