@@ -3,6 +3,7 @@ import response from '../utils/response.utils.js';
 import { logger } from '../lib/logger.js';
 import { msToSuffix, msToHumanDuration } from '../lib/time.js';
 import { CONSTANTS } from '../config/constants.js';
+import REDIS_KEYS from '../config/redisKeys.js';
 
 /**
  * Generates a clean, standardized Redis rate limit prefix based on a name and time window.
@@ -61,7 +62,7 @@ export const createRateLimiter = ({
                          'unknown_client';
         }
 
-        const redisKey = `rl:${effectivePrefix}:${identifier}`;
+        const redisKey = REDIS_KEYS.rateLimit(effectivePrefix, identifier);
 
         const { success, remaining, resetMs } = await checkSlidingWindowRateLimit({
             key: redisKey,

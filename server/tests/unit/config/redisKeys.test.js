@@ -36,4 +36,10 @@ describe('Unit: REDIS_KEYS Config', () => {
         const email = '  USER@Example.COM ';
         expect(REDIS_KEYS.emailToId(email)).toBe('email:to:id:user@example.com');
     });
+
+    it('should generate correct rateLimit key using RATE_LIMIT prefix', () => {
+        const prefix = 'auth:login:1m';
+        const identifier = '192.168.1.1';
+        expect(REDIS_KEYS.rateLimit(prefix, identifier)).toBe('rl:auth:login:1m:192.168.1.1');
+    });
 });

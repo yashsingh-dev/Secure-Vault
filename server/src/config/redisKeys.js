@@ -7,7 +7,8 @@ export const REDIS_KEYS = {
         USER_OTP: 'user:otp',           // Bucket 2: Transient OTP code, attempts, cooldown
         USER_PROFILE: 'user:profile',   // Bucket 3: User document / dashboard profile
         USER_RESET_TOKEN: 'user:reset:token', // Bucket 4: Standalone password reset token
-        EMAIL_LOOKUP: 'email:to:id'     // Secondary Index: email -> userId
+        EMAIL_LOOKUP: 'email:to:id',    // Secondary Index: email -> userId
+        RATE_LIMIT: 'rl'                // Rate limit namespace prefix
     },
 
     blacklist: (tokenHash) => `${REDIS_KEYS.PREFIX.BLACKLIST}:${tokenHash}`,
@@ -26,7 +27,10 @@ export const REDIS_KEYS = {
     userResetToken: (userId) => `${REDIS_KEYS.PREFIX.USER_RESET_TOKEN}:${userId}`,
 
     // 5. Secondary Index: Email to User ID Lookup
-    emailToId: (email) => `${REDIS_KEYS.PREFIX.EMAIL_LOOKUP}:${email.trim().toLowerCase()}`
+    emailToId: (email) => `${REDIS_KEYS.PREFIX.EMAIL_LOOKUP}:${email.trim().toLowerCase()}`,
+
+    // 6. Rate Limit Key Helper
+    rateLimit: (prefix, identifier) => `${REDIS_KEYS.PREFIX.RATE_LIMIT}:${prefix}:${identifier}`
 };
 
 export default REDIS_KEYS;
