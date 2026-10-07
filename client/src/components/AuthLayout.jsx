@@ -1,16 +1,22 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { HiOutlineShieldCheck, HiOutlineLockClosed, HiOutlineFingerPrint, HiOutlineServerStack } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
+import { useEffect } from 'react';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+
+  // Ensure auth pages always use dark theme (strip landing page light class)
+  useEffect(() => {
+    document.documentElement.classList.remove('light');
+  }, []);
 
   if (isLoading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#090a0f', color: 'white' }}>Loading...</div>;
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

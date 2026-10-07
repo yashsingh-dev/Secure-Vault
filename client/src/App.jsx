@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthLayout from './components/AuthLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -12,10 +13,15 @@ import GoogleCallback from './pages/GoogleCallback';
 function App() {
   return (
     <Routes>
+      {/* Public landing page */}
+      <Route path="/" element={<Landing />} />
+
+      {/* Protected dashboard */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Route>
 
+      {/* Auth flow pages */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -24,7 +30,8 @@ function App() {
         <Route path="/change-password/:token" element={<ChangePassword />} />
         <Route path="/auth/callback" element={<GoogleCallback />} />
       </Route>
-      {/* Redirect unknown routes to home */}
+
+      {/* Redirect unknown routes to landing */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

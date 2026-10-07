@@ -52,6 +52,11 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // Ensure dashboard always uses dark theme
+  useEffect(() => {
+    document.documentElement.classList.remove('light');
+  }, []);
+
   // Eagerly refresh latest user profile and active sessions on dashboard visit
   const fetchSessions = async (isManual = false) => {
     try {
