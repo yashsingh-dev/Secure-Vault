@@ -82,11 +82,10 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
           href="https://github.com/yashsingh-dev/Secure-Vault"
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center justify-center gap-2 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 ${
-            isDark
+          className={`inline-flex items-center justify-center gap-2 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 ${isDark
               ? 'border-white/10 hover:border-white/20 bg-[#12121a] text-slate-200 hover:text-white'
               : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-800'
-          }`}
+            }`}
         >
           View Source on GitHub
           <HiOutlineArrowTopRightOnSquare className="w-4 h-4 opacity-70" />
@@ -95,11 +94,10 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
         {onOpenDocs && (
           <button
             onClick={onOpenDocs}
-            className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-mono text-xs rounded-xl border transition-all duration-200 ${
-              isDark
+            className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-mono text-xs rounded-xl border transition-all duration-200 ${isDark
                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
                 : 'border-emerald-500/30 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <HiOutlineCodeBracket className="w-4 h-4" />
             Threat Model Spec
@@ -147,15 +145,14 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                  activeTab === tab.id
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${activeTab === tab.id
                     ? isDark
                       ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-500/30'
                     : isDark
                       ? 'text-slate-400 hover:text-white hover:bg-white/5'
                       : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -196,7 +193,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                 <div>
                   <div className="text-[11px] text-cyan-400 font-semibold mb-1">// 1. Header (Cryptographic Spec)</div>
                   <pre className={`p-3 rounded-lg border ${isDark ? 'bg-black/30 border-white/5 text-cyan-300' : 'bg-slate-50 border-slate-200 text-cyan-800'}`}>
-{`{
+                    {`{
   "alg": "HS256",
   "typ": "JWT"
 }`}
@@ -206,8 +203,8 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                 <div>
                   <div className="text-[11px] text-emerald-400 font-semibold mb-1">// 2. Payload (Bound to Device Family & Version Counter)</div>
                   <pre className={`p-3 rounded-lg border ${isDark ? 'bg-black/30 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
-{`{
-  "_id": "66f4a8b1c9d2e3f4a5b6c7d8",
+                    {`{
+  "userId": "66f4a8b1c9d2e3f4a5b6c7d8",
   "familyId": "fam_9e83b4c1",         // Bound to client device session
   "tokenVersion": ${tokenVersionCounter},             // Global revocation counter (OCC)
   "iat": 1727341200,                  // Issued at
@@ -236,7 +233,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                     {rawHeader}
                   </span>
                   <span className="text-slate-500 font-bold">.</span>
-                  <span className="text-emerald-400 font-bold hover:underline cursor-pointer" title="Payload: { _id, familyId, tokenVersion: 2, exp: 15m }">
+                  <span className="text-emerald-400 font-bold hover:underline cursor-pointer" title="Payload: { userId, familyId, tokenVersion, exp: 15m }">
                     {rawPayload}
                   </span>
                   <span className="text-slate-500 font-bold">.</span>
@@ -257,27 +254,54 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
         {/* Tab 2: Refresh Token Content */}
         {activeTab === 'refresh' && (
           <div className={`p-6 font-mono text-xs overflow-x-auto space-y-4 ${isDark ? 'bg-[#0f0f18] text-slate-300' : 'bg-white text-slate-800'}`}>
-            <div>
-              <div className="text-[11px] text-emerald-400 font-semibold mb-1">// RFC 6265 Compliant HTTP Cookie Specification</div>
-              <pre className={`p-4 rounded-xl border leading-relaxed ${isDark ? 'bg-black/30 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
-{`Set-Cookie: refresh_token=eyJhbGciOi...;
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5">
+              <div className="text-[11px] text-emerald-400 font-semibold">// HTTP Cookie Specification</div>
+              <button
+                onClick={() => setTokenVersionCounter(v => v + 1)}
+                className="px-3 py-1 rounded text-[11px] font-sans font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+                title="Increments tokenVersion to globally invalidate all sessions"
+              >
+                OCC Logout All (v{tokenVersionCounter})
+              </button>
+            </div>
+
+            <pre className={`p-4 rounded-xl border leading-relaxed ${isDark ? 'bg-black/30 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
+              {`Set-Cookie: __Host-sv_rt=eyJhbGciOi...;
   Max-Age=604800;                 // 7-day cryptographically secure lifetime
   Path=/api/v1/auth;              // Scoped strictly to authentication route
   HttpOnly;                       // Completely inaccessible to JavaScript (XSS Immune)
   Secure;                         // Transported over HTTPS TLS only
-  SameSite=None;                  // Engineered for separate client/API cloud pods
-  Priority=High`}
-              </pre>
-            </div>
+  SameSite=None;                  // Engineered for separate client/API cloud pods`}
+            </pre>
+
+            {/* OCC Invalidation Banner triggered by button */}
+            {tokenVersionCounter > 2 && (
+              <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span>
+                    <strong>OCC Global Invalidation Active:</strong> User <code>tokenVersion</code> updated to <strong>{tokenVersionCounter}</strong>.
+                  </span>
+                </div>
+                <span className="text-[10px] font-sans px-2 py-0.5 rounded bg-amber-500/20 font-semibold">
+                  All prior access tokens invalidated
+                </span>
+              </div>
+            )}
 
             <div>
-              <div className="text-[11px] text-cyan-400 font-semibold mb-1">// Authoritative MongoDB Record with SHA-256 Digest</div>
-              <pre className={`p-4 rounded-xl border ${isDark ? 'bg-black/30 border-white/5 text-cyan-300' : 'bg-slate-50 border-slate-200 text-cyan-800'}`}>
-{`{
+              <div className="text-[11px] text-cyan-400 font-semibold mb-1">// Authoritative MongoDB Record with Rotation Metadata</div>
+              <pre className={`p-4 rounded-xl border leading-relaxed ${isDark ? 'bg-black/30 border-white/5 text-cyan-300' : 'bg-slate-50 border-slate-200 text-cyan-800'}`}>
+                {`{
   "token": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // SHA256 hashed
   "userId": "66f4a8b1c9d2e3f4a5b6c7d8",
   "familyId": "fam_9e83b4c1",
-  "device": "MacBook Pro (Chrome)",
+  "isRotated": ${tokenVersionCounter > 2 ? 'true' : 'false'},
+  "rotatedAt": ${tokenVersionCounter > 2 ? '"2026-10-07T11:21:42Z"' : 'null'},
+  "device": "MacBook Pro",
+  "browser": "Chrome 129.0",
+  "os": "macOS Sequoia",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36...",
   "ip": "203.0.113.195",
   "lastActive": "2026-10-07T11:20:00Z"
 }`}
@@ -296,11 +320,10 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSimulatedBreach(!simulatedBreach)}
-                  className={`px-3 py-1 rounded text-[11px] font-sans font-medium transition-all ${
-                    simulatedBreach
+                  className={`px-3 py-1 rounded text-[11px] font-sans font-medium transition-all ${simulatedBreach
                       ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       : 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
-                  }`}
+                    }`}
                 >
                   {simulatedBreach ? 'Reset Family State' : 'Simulate Stolen Token Replay'}
                 </button>
@@ -328,10 +351,12 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                     <span>MacBook Pro (Chrome)</span>
                     <span className="text-[10px] text-emerald-400 font-mono">[Current Device]</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Active</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${tokenVersionCounter > 2 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {tokenVersionCounter > 2 ? `Invalidated by OCC (v${tokenVersionCounter})` : 'Active'}
+                  </span>
                 </div>
                 <div className="text-[11px] text-slate-400 pl-6">
-                  Family ID: <code className="text-emerald-400">fam_9e83b4c1</code> · Grace Period: Valid · Redis TTL: 604,800s
+                  Family ID: <code className="text-emerald-400">fam_9e83b4c1</code>
                 </div>
               </div>
 
@@ -342,7 +367,9 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                     <HiOutlineDevicePhoneMobile className="w-4 h-4 text-cyan-400" />
                     <span>iPhone 14 Pro (Safari)</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Active</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${tokenVersionCounter > 2 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {tokenVersionCounter > 2 ? `Invalidated by OCC (v${tokenVersionCounter})` : 'Active'}
+                  </span>
                 </div>
                 <div className="text-[11px] text-slate-400 pl-6">
                   Family ID: <code className="text-cyan-400">fam_4a71d2e9</code> · Device Isolated
@@ -358,8 +385,8 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                       Compromised Laptop (Stolen Token)
                     </span>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded ${simulatedBreach ? 'bg-red-500/20 text-red-400 font-bold' : 'bg-slate-800 text-slate-400'}`}>
-                    {simulatedBreach ? 'REVOKED (BREACH DETECTED)' : 'Active (fam_1c3f98a2)'}
+                  <span className={`text-[10px] px-2 py-0.5 rounded ${simulatedBreach ? 'bg-red-500/20 text-red-400 font-bold' : tokenVersionCounter > 2 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                    {simulatedBreach ? 'REVOKED (BREACH DETECTED)' : tokenVersionCounter > 2 ? `Invalidated by OCC (v${tokenVersionCounter})` : 'Active (fam_1c3f98a2)'}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-400 pl-6">

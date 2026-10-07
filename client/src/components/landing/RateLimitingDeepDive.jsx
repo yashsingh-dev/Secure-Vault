@@ -25,7 +25,8 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
   const percentage = timePos / 100;
   const weightedPrev = Math.floor((1 - percentage) * prevHits);
   const totalEstimated = weightedPrev + currHits;
-  const isAllowed = totalEstimated < maxAllowed;
+  // A request is allowed as long as totalEstimated <= maxAllowed
+  const isAllowed = totalEstimated <= maxAllowed;
   const remaining = Math.max(0, maxAllowed - totalEstimated);
   const resetSeconds = Math.max(1, Math.round((1 - percentage) * windowSeconds));
 
@@ -148,7 +149,7 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
                 </div>
                 <div className="pt-2 border-t border-white/5">
                   <span className="text-slate-500">// 4. Threshold check</span>
-                  <div className="text-pink-400">if (totalEstimated &gt;= maxRequests) return 429</div>
+                  <div className="text-pink-400">if (totalEstimated &gt; maxRequests) return 429</div>
                 </div>
               </div>
             </div>
@@ -200,7 +201,7 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
             <div className="space-y-5">
               <div>
                 <div className="flex justify-between text-xs font-mono mb-2">
-                  <span className="text-slate-400">Window Elapsed: {timePos}% ({Math.round(percentage * windowSeconds)}s / {windowSeconds}s)</span>
+                  <span className="text-slate-400">Current Window Elapsed: {timePos}% ({Math.round(percentage * windowSeconds)}s / {windowSeconds}s)</span>
                   <span className="text-cyan-400 font-semibold">Weight: {(1 - percentage).toFixed(2)}</span>
                 </div>
                 <input
@@ -263,7 +264,7 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
                 <div className="flex justify-between border-t border-white/10 pt-1.5 mt-1">
                   <span className="text-slate-400">Evaluation:</span>
                   <span className={`font-bold ${isAllowed ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {totalEstimated} &lt; {maxAllowed} ({isAllowed ? 'ALLOWED' : 'BLOCKED - 429 TOO MANY REQUESTS'})
+                    {totalEstimated} {isAllowed ? '≤' : '>'} {maxAllowed} ({isAllowed ? 'ALLOWED' : 'BLOCKED - 429 TOO MANY REQUESTS'})
                   </span>
                 </div>
               </div>
@@ -282,7 +283,6 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
                 <div>RateLimit-Remaining: {remaining}</div>
                 <div>RateLimit-Reset: {resetSeconds}s</div>
                 {!isAllowed && <div>Retry-After: {resetSeconds}s</div>}
-                <div>X-RateLimit-Strategy: sliding-window-counter-lua</div>
               </div>
             </div>
           </div>
@@ -319,8 +319,8 @@ export default function RateLimitingDeepDive({ theme = 'dark' }) {
                 <span className="text-emerald-400">local</span> elapsed = now % window_ms{'\n'}
                 <span className="text-emerald-400">local</span> weight  = <span className="text-amber-400">1</span> - (elapsed / window_ms){'\n'}
                 <span className="text-emerald-400">local</span> estimated = math.floor(weight * prev_count) + curr_count{'\n\n'}
-                <span className="text-slate-500">-- Atomic condition test</span>{'\n'}
-                <span className="text-pink-400">if</span> estimated &gt;= max_requests <span className="text-pink-400">then</span>{'\n'}
+                <span className="text-slate-500">-- Atomic condition test (allows up to max_requests)</span>{'\n'}
+                <span className="text-pink-400">if</span> estimated &gt; max_requests <span className="text-pink-400">then</span>{'\n'}
                 {'  '}<span className="text-pink-400">return</span> {'{'}<span className="text-amber-400">0</span>, estimated, max_requests{'}'}  <span className="text-slate-500">-- 429 Too Many Requests</span>{'\n'}
                 <span className="text-pink-400">end</span>{'\n\n'}
                 <span className="text-slate-500">-- Increment and extend key lifespan</span>{'\n'}

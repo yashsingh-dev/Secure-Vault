@@ -30,9 +30,9 @@ const PIPELINE_STEPS = [
     codeSnippet: `// Client Request Contract (axios interceptor)
 headers: {
   'Content-Type': 'application/json',
-  'x-csrf-token': getStoredCsrfToken() // Cross-pod CSRF shield
+  'x-csrf-token': getStoredCsrfToken() // Stored in React Memory (not in localStorage/sessionStorage)
 },
-withCredentials: true // Transmits httpOnly refresh cookie`
+withCredentials: true // Transmits httpOnly cookies`
   },
   {
     id: 'ratelimit',
@@ -296,8 +296,8 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
         </div>
 
         {/* Step Diagram Cards (Horizontal scroll on mobile, responsive flex on desktop) */}
-        <div className="relative mb-10 overflow-x-auto pb-4 scrollbar-hide">
-          <div className="flex items-center gap-2 min-w-[960px] lg:min-w-full justify-between">
+        <div className="relative mb-10 overflow-x-auto pb-6 pt-2 px-2 sm:px-4 -mx-2 sm:mx-0 scrollbar-thin">
+          <div className="flex items-center gap-2 min-w-[960px] lg:min-w-full justify-between px-2">
             {PIPELINE_STEPS.map((step, idx) => {
               const Icon = step.icon;
               const isActive = idx === activeStep;

@@ -16,14 +16,14 @@ const router = express.Router();
 router.post('/login',
     RateLimit.loginBurstLimiter,      // Tier 1: Max 5 reqs per 1 min
     RateLimit.loginSustainedLimiter,  // Tier 2: Max 10 reqs per 5 mins
-    Recaptcha.verify,
+    // Recaptcha.verify,
     Validate.body(schemas.loginSchema),
     Controller.login
 );
 
 router.post('/register',
     RateLimit.registerLimiter,        // Max 5 registrations per 1 hour
-    Recaptcha.verify,
+    // Recaptcha.verify,
     Validate.body(schemas.registerSchema),
     Controller.register
 );
