@@ -30,6 +30,7 @@ export const CONSTANTS = {
         EXPIRY_MS: 10 * 60 * 1000 // 10 minutes
     },
     RATE_LIMIT: {
-        ENABLED: process.env.NODE_ENV === 'production'
+        // ENABLED: process.env.NODE_ENV === 'production'
+        ENABLED: true
     }
 };
