@@ -86,7 +86,16 @@ export const sessionActionLimiter = createRateLimiter({
     message: (d) => `Too many session requests. Please wait ${d} before trying again.`
 });
 
+// 10. Global Limiter: General DDoS & endpoint protection (Max 300 requests per 5 mins per IP)
+export const globalLimiter = createRateLimiter({
+    name: 'global',
+    limit: 300,
+    windowMs: 5 * 60 * 1000,
+    message: (d) => `Too many requests from this IP. Please try again in ${d}.`
+});
+
 const RateLimit = {
+    globalLimiter,
     loginBurstLimiter,
     loginSustainedLimiter,
     googleAuthLimiter,
@@ -99,3 +108,4 @@ const RateLimit = {
 };
 
 export default RateLimit;
+

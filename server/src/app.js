@@ -9,6 +9,7 @@ import httpLogger from './middlewares/httpLogger.middleware.js';
 import dbConnection from './db/connection.js';
 import errorHandler from './middlewares/errorHandler.middleware.js';
 import { doubleCsrfProtection, generateCsrfToken } from './middlewares/csrf.middleware.js';
+import { globalLimiter } from './config/rateLimiters.js';
 import routes from './routes/index.js';
 
 const app = express();
@@ -26,6 +27,9 @@ app.use(cookieParser());
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(httpLogger);
+
+// Global Rate Limiter: Protects all incoming requests against high-volume abuse/DDoS
+app.use(globalLimiter);
 
 // Health check or status route
 app.get('/api/health', (req, res) => {
