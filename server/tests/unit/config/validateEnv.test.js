@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateEnv } from '../../../src/config/validateEnv.js';
+import { validateEnv } from '../../../src/config/validateSetup.js';
 
 describe('Unit: validateEnv Config', () => {
     const originalEnv = { ...process.env };

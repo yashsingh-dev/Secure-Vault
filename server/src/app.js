@@ -1,6 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
-import './config/validateEnv.js';
+import './config/validateSetup.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from "helmet";

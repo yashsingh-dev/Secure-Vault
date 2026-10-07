@@ -19,7 +19,6 @@ export const CONSTANTS = {
         LENGTH: 6,
         EXPIRY_MS: 15 * 60 * 1000, // 15 minutes
         COOL_DOWN_MS: 60 * 1000, // 1 minute
-        RESET_TOKEN: '10m',
         MAX_ATTEMPTS: 5,
         BLOCK_TIME_MS: 5 * 60 * 1000 // 5 minutes
     },

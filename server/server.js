@@ -1,4 +1,4 @@
-import './src/config/validateEnv.js';
+import './src/config/validateSetup.js';
 import http from 'http';
 import app from './src/app.js';
 import { logger } from './src/lib/logger.js';
