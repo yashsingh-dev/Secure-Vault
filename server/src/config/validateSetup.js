@@ -204,6 +204,15 @@ export const validateConstants = () => {
     // 4. Validate OTP configuration
     if (typeof CONSTANTS.OTP?.TESTING !== 'boolean') {
         errors.push(`CONSTANTS.OTP.TESTING must be a boolean; received: ${JSON.stringify(CONSTANTS.OTP?.TESTING)}`);
+    } else {
+        const currentEnv = (process.env.NODE_ENV || 'development').toLowerCase();
+        const isNonProd = ['development', 'test', 'testing'].includes(currentEnv);
+        if (isNonProd && CONSTANTS.OTP.TESTING === false) {
+            logger.warn(
+                { environment: currentEnv, otpTesting: CONSTANTS.OTP.TESTING },
+                `Configuration Warning: CONSTANTS.OTP.TESTING is set to false in a ${currentEnv} environment. For local development or automated tests, set OTP.TESTING: true to avoid sending live emails and running into delivery quotas.`
+            );
+        }
     }
     assertPositiveInteger(CONSTANTS.OTP?.LENGTH, 'CONSTANTS.OTP.LENGTH');
     assertPositiveInteger(CONSTANTS.OTP?.EXPIRY_MS, 'CONSTANTS.OTP.EXPIRY_MS');
