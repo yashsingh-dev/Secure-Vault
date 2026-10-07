@@ -1,10 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import createRateLimiter from '../../../src/middlewares/rateLimiter.middleware.js';
 import * as rateLimiterService from '../../../src/services/v1/rateLimiter.service.js';
+import { CONSTANTS } from '../../../src/config/constants.js';
 
 describe('Unit: rateLimiter.middleware', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
+        CONSTANTS.RATE_LIMIT.ENABLED = true;
+    });
+
+    it('should bypass rate limiting and call next() immediately when RATE_LIMIT.ENABLED is false', async () => {
+        CONSTANTS.RATE_LIMIT.ENABLED = false;
+        const checkSpy = vi.spyOn(rateLimiterService, 'checkSlidingWindowRateLimit');
+
+        const limiter = createRateLimiter({
+            name: 'test',
+            limit: 5,
+            windowMs: 60000
+        });
+
+        const req = {};
+        const res = {};
+        const next = vi.fn();
+
+        await limiter(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+        expect(checkSpy).not.toHaveBeenCalled();
     });
 
     it('should set RateLimit headers and call next() when request is within limit', async () => {
@@ -101,6 +123,34 @@ describe('Unit: rateLimiter.middleware', () => {
         expect(next).toHaveBeenCalled();
         expect(checkSpy).toHaveBeenCalledWith(expect.objectContaining({
             key: 'rl:otp:user@example.com'
+        }));
+    });
+
+    it('should automatically generate prefix from name and windowMs if prefix is not given', async () => {
+        const checkSpy = vi.spyOn(rateLimiterService, 'checkSlidingWindowRateLimit').mockResolvedValue({
+            success: true,
+            remaining: 9,
+            resetMs: 60000
+        });
+
+        const limiter = createRateLimiter({
+            name: 'auth:login:burst',
+            limit: 10,
+            windowMs: 60 * 1000 // 1m
+        });
+
+        const req = {
+            headers: { 'x-forwarded-for': '192.168.1.100' },
+            socket: {}
+        };
+        const res = { setHeader: vi.fn() };
+        const next = vi.fn();
+
+        await limiter(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+        expect(checkSpy).toHaveBeenCalledWith(expect.objectContaining({
+            key: 'rl:auth:login:burst:1m:192.168.1.100'
         }));
     });
 });

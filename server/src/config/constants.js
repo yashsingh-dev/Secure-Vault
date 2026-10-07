@@ -28,5 +28,8 @@ export const CONSTANTS = {
     RESET_TOKEN: {
         EXPIRY: '10m',
         EXPIRY_MS: 10 * 60 * 1000 // 10 minutes
+    },
+    RATE_LIMIT: {
+        ENABLED: process.env.NODE_ENV === 'production'
     }
 };
