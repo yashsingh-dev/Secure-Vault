@@ -69,6 +69,10 @@ const userModel = mongoose.Schema({
         alwaysRequireOtp: {
             type: Boolean,
             default: false
+        },
+        notifyOnLogin: {
+            type: Boolean,
+            default: true
         }
     },
     resetToken: {

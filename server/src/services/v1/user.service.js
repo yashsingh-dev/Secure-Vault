@@ -14,7 +14,8 @@ const getProfile = async (userId) => {
         isVerified: user.isVerified,
         googleLogin: user.googleLogin,
         settings: {
-            alwaysRequireOtp: user.settings?.alwaysRequireOtp || false
+            alwaysRequireOtp: user.settings?.alwaysRequireOtp || false,
+            notifyOnLogin: user.settings?.notifyOnLogin ?? true
         },
         lastLogin: user.lastLogin,
         createdAt: user.createdAt
@@ -29,13 +30,21 @@ const updateProfile = async (userId, updateData) => {
         updateFields.name = typeof updateData.name === 'string' ? updateData.name.trim() : updateData.name;
     }
 
-    // Support settings object as well as legacy alwaysRequireOtp parameter
+    // Support settings object as well as legacy alwaysRequireOtp/notifyOnLogin parameters
     if (updateData.settings !== undefined) {
         if (updateData.settings?.alwaysRequireOtp !== undefined) {
             updateFields['settings.alwaysRequireOtp'] = Boolean(updateData.settings.alwaysRequireOtp);
         }
-    } else if (updateData.alwaysRequireOtp !== undefined) {
+        if (updateData.settings?.notifyOnLogin !== undefined) {
+            updateFields['settings.notifyOnLogin'] = Boolean(updateData.settings.notifyOnLogin);
+        }
+    }
+    
+    if (updateData.alwaysRequireOtp !== undefined) {
         updateFields['settings.alwaysRequireOtp'] = Boolean(updateData.alwaysRequireOtp);
+    }
+    if (updateData.notifyOnLogin !== undefined) {
+        updateFields['settings.notifyOnLogin'] = Boolean(updateData.notifyOnLogin);
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -59,7 +68,8 @@ const updateProfile = async (userId, updateData) => {
         isVerified: updatedUser.isVerified,
         googleLogin: updatedUser.googleLogin,
         settings: {
-            alwaysRequireOtp: updatedUser.settings?.alwaysRequireOtp || false
+            alwaysRequireOtp: updatedUser.settings?.alwaysRequireOtp || false,
+            notifyOnLogin: updatedUser.settings?.notifyOnLogin ?? true
         },
         lastLogin: updatedUser.lastLogin,
         createdAt: updatedUser.createdAt

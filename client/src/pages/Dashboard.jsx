@@ -33,6 +33,9 @@ export default function Dashboard() {
   const [alwaysRequireOtp, setAlwaysRequireOtp] = useState(
     Boolean(user?.settings?.alwaysRequireOtp)
   );
+  const [notifyOnLogin, setNotifyOnLogin] = useState(
+    user?.settings?.notifyOnLogin ?? true
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
@@ -49,6 +52,7 @@ export default function Dashboard() {
     if (user) {
       setName(user.name || '');
       setAlwaysRequireOtp(Boolean(user.settings?.alwaysRequireOtp));
+      setNotifyOnLogin(user.settings?.notifyOnLogin ?? true);
     }
   }, [user]);
 
@@ -84,6 +88,7 @@ export default function Dashboard() {
           updateUser(res.payload);
           setName(res.payload.name || '');
           setAlwaysRequireOtp(Boolean(res.payload.settings?.alwaysRequireOtp));
+          setNotifyOnLogin(res.payload.settings?.notifyOnLogin ?? true);
         }
       } catch (err) {
         // Fall back seamlessly to authenticated session state
@@ -101,7 +106,8 @@ export default function Dashboard() {
 
   const hasChanges =
     name.trim() !== (user?.name || '').trim() ||
-    alwaysRequireOtp !== Boolean(user?.settings?.alwaysRequireOtp);
+    alwaysRequireOtp !== Boolean(user?.settings?.alwaysRequireOtp) ||
+    notifyOnLogin !== (user?.settings?.notifyOnLogin ?? true);
 
   const handleSaveProfile = async (e) => {
     e?.preventDefault();
@@ -125,6 +131,7 @@ export default function Dashboard() {
       const res = await UserAPI.updateProfile({
         name: trimmedName,
         alwaysRequireOtp,
+        notifyOnLogin,
       });
 
       if (res?.payload) {
@@ -367,6 +374,24 @@ export default function Dashboard() {
                   type="checkbox"
                   checked={alwaysRequireOtp}
                   onChange={(e) => setAlwaysRequireOtp(e.target.checked)}
+                />
+                <span className="switch-slider"></span>
+              </label>
+            </div>
+
+            <div className="toggle-row">
+              <div className="toggle-info">
+                <div className="toggle-title">Email Notification on Login</div>
+                <div className="toggle-desc">
+                  Send an instant security notification to your email whenever a new login is detected.
+                </div>
+              </div>
+              <label className="switch-label" htmlFor="login-notify-toggle">
+                <input
+                  id="login-notify-toggle"
+                  type="checkbox"
+                  checked={notifyOnLogin}
+                  onChange={(e) => setNotifyOnLogin(e.target.checked)}
                 />
                 <span className="switch-slider"></span>
               </label>
