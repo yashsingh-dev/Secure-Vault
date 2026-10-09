@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendOTPEmail } from '../../../src/utils/sendMail.utils.js';
-import resend from '../../../src/lib/resend.js';
+import emailClient from '../../../src/lib/emailClient.js';
 import { CONSTANTS } from '../../../src/config/constants.js';
 
 describe('Unit: sendMail.utils', () => {
@@ -8,7 +8,7 @@ describe('Unit: sendMail.utils', () => {
         vi.restoreAllMocks();
     });
 
-    it('should return success in testing mode without calling Resend API', async () => {
+    it('should return success in testing mode without dispatching live email', async () => {
         const originalTesting = CONSTANTS.OTP.TESTING;
         CONSTANTS.OTP.TESTING = true;
 
@@ -20,12 +20,12 @@ describe('Unit: sendMail.utils', () => {
         CONSTANTS.OTP.TESTING = originalTesting;
     });
 
-    it('should call resend.emails.send if CONSTANTS.OTP.TESTING is false', async () => {
+    it('should call emailClient.send if CONSTANTS.OTP.TESTING is false', async () => {
         const originalTesting = CONSTANTS.OTP.TESTING;
         CONSTANTS.OTP.TESTING = false;
 
-        const sendSpy = vi.spyOn(resend.emails, 'send').mockResolvedValue({
-            data: { id: 'email-id-123' },
+        const sendSpy = vi.spyOn(emailClient, 'send').mockResolvedValue({
+            data: { messageId: 'email-id-123' },
             error: null
         });
 
@@ -33,16 +33,16 @@ describe('Unit: sendMail.utils', () => {
 
         expect(sendSpy).toHaveBeenCalled();
         expect(res.success).toBe(true);
-        expect(res.data.id).toBe('email-id-123');
+        expect(res.data.messageId).toBe('email-id-123');
 
         CONSTANTS.OTP.TESTING = originalTesting;
     });
 
-    it('should handle Resend API rejection gracefully', async () => {
+    it('should handle email delivery rejection gracefully', async () => {
         const originalTesting = CONSTANTS.OTP.TESTING;
         CONSTANTS.OTP.TESTING = false;
 
-        vi.spyOn(resend.emails, 'send').mockResolvedValue({
+        vi.spyOn(emailClient, 'send').mockResolvedValue({
             data: null,
             error: { message: 'Invalid API key' }
         });

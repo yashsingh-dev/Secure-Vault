@@ -1,4 +1,4 @@
-import resend from '../lib/resend.js';
+import emailClient from '../lib/emailClient.js';
 import { CONSTANTS } from '../config/constants.js';
 import { logger } from '../lib/logger.js';
 
@@ -108,15 +108,14 @@ const sendOTPEmail = async (email, otp) => {
             contentHtml
         });
 
-        const { data, error } = await resend.emails.send({
-            from: 'Secure Vault <' + (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev') + '>',
-            to: [email],
+        const { data, error } = await emailClient.send({
+            to: email,
             subject: `${otp} is your Secure Vault verification code`,
             html
         });
 
         if (error) {
-            logger.error({ err: error, recipient: email }, 'Resend service rejected email dispatch request');
+            logger.error({ err: error, recipient: email }, 'Email delivery service rejected email dispatch request');
             return { success: false, error };
         }
 
@@ -182,15 +181,14 @@ const sendLoginAlertEmail = async (email, { ip = 'Unknown IP', device = 'Unknown
             contentHtml
         });
 
-        const { data, error } = await resend.emails.send({
-            from: 'Secure Vault <' + (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev') + '>',
-            to: [email],
+        const { data, error } = await emailClient.send({
+            to: email,
             subject: `Security Alert: New sign-in on ${device}`,
             html
         });
 
         if (error) {
-            logger.error({ err: error, recipient: email }, 'Resend service rejected login alert email');
+            logger.error({ err: error, recipient: email }, 'Email delivery service rejected login alert email');
             return { success: false, error };
         }
 
@@ -269,15 +267,14 @@ const sendWelcomeEmail = async (email, { name = 'there', dashboardUrl } = {}) =>
             contentHtml
         });
 
-        const { data, error } = await resend.emails.send({
-            from: 'Secure Vault <' + (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev') + '>',
-            to: [email],
+        const { data, error } = await emailClient.send({
+            to: email,
             subject: 'Welcome to Secure Vault - Account Activated',
             html
         });
 
         if (error) {
-            logger.error({ err: error, recipient: email }, 'Resend service rejected welcome email');
+            logger.error({ err: error, recipient: email }, 'Email delivery service rejected welcome email');
             return { success: false, error };
         }
 

@@ -8,8 +8,8 @@ import { CONSTANTS } from './constants.js';
  */
 const REQUIRED_KEYS = [
     'MONGO_URI',
-    'RESEND_API_KEY',
-    'RESEND_FROM_EMAIL',
+    'EMAIL_API_KEY',
+    'SENDER_EMAIL',
     'OAUTH_GOOGLE_CLIENT_ID',
     'OAUTH_GOOGLE_SECRET',
     'RECAPTCHA_SECRET_KEY'

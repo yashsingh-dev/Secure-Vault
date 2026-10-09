@@ -219,7 +219,7 @@ Users expect modern one-click logins with Google, but combining social logins wi
 #### What I did:
 An authentication system is only as secure as its runtime configuration. A missing secret key or database URI in production can silently cripple security logic or cause runtime crashes during active user sessions.
 * Created a dedicated startup validator (`validateSetup.js`) that boots before any server logic or database connections initialize.
-* **Required Keys Guard:** Halts the server process (`process.exit(1)`) with a descriptive error report if critical credentials (`MONGO_URI`, `OAUTH_GOOGLE_SECRET`, `RECAPTCHA_SECRET_KEY`, `RESEND_API_KEY`) are missing.
+* **Required Keys Guard:** Halts the server process (`process.exit(1)`) with a descriptive error report if critical credentials (`MONGO_URI`, `OAUTH_GOOGLE_SECRET`, `RECAPTCHA_SECRET_KEY`, `EMAIL_API_KEY`) are missing.
 * **Safe Fallbacks with Warnings:** Provides sensible defaults for non-critical development variables (`PORT`, `CLIENT_URL_DEV`, `JWT_*_KEY`) while logging explicit warnings so developers are alerted before deploying to production.
 
 ---

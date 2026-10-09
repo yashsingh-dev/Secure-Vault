@@ -16,8 +16,8 @@ describe('Unit: validateEnv Config', () => {
     it('should pass validation when all required keys are present', () => {
         // Ensure required keys are populated
         process.env.MONGO_URI = 'mongodb://localhost:27017/test';
-        process.env.RESEND_API_KEY = 're_test_key';
-        process.env.RESEND_FROM_EMAIL = 'test@example.com';
+        process.env.EMAIL_API_KEY = 're_test_key';
+        process.env.SENDER_EMAIL = 'test@example.com';
         process.env.OAUTH_GOOGLE_CLIENT_ID = 'google-client-id';
         process.env.OAUTH_GOOGLE_SECRET = 'google-secret';
         process.env.RECAPTCHA_SECRET_KEY = 'recaptcha-key';
@@ -27,8 +27,8 @@ describe('Unit: validateEnv Config', () => {
 
     it('should assign safe defaults for missing optional keys', () => {
         process.env.MONGO_URI = 'mongodb://localhost:27017/test';
-        process.env.RESEND_API_KEY = 're_test_key';
-        process.env.RESEND_FROM_EMAIL = 'test@example.com';
+        process.env.EMAIL_API_KEY = 're_test_key';
+        process.env.SENDER_EMAIL = 'test@example.com';
         process.env.OAUTH_GOOGLE_CLIENT_ID = 'google-client-id';
         process.env.OAUTH_GOOGLE_SECRET = 'google-secret';
         process.env.RECAPTCHA_SECRET_KEY = 'recaptcha-key';
