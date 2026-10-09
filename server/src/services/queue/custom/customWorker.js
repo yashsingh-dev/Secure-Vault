@@ -61,10 +61,22 @@ class CustomQueueWorker {
 
     /**
      * Recovery on worker start:
-     * If server previously crashed mid-send, return stranded jobs from
+     * If the entire server cluster crashed mid-send, return stranded jobs from
      * processing list back into high priority queue.
+     * 
+     * Solution A (Distributed Heartbeat Lock):
+     * If another server instance has been active within the last 5 seconds,
+     * skip recovery to avoid stealing active in-flight jobs from living instances.
      */
     async recoverStrandedJobs() {
+        const heartbeatKey = REDIS_KEYS.queue.workerHeartbeat();
+        const activeWorkerDetected = await redis.get(heartbeatKey);
+
+        if (activeWorkerDetected) {
+            logger.info('Active worker heartbeat detected from another running instance. Skipping stranded job recovery.');
+            return;
+        }
+
         const procKey = REDIS_KEYS.queue.processing();
         const highKey = REDIS_KEYS.queue.high();
         let recovered = 0;
@@ -77,8 +89,7 @@ class CustomQueueWorker {
 
         if (recovered > 0) {
             logger.info({ recoveredCount: recovered }, 'Recovered stranded in-flight jobs back to high queue');
-        }
-        else {
+        } else {
             logger.info('No stranded jobs to recover');
         }
     }
@@ -97,6 +108,10 @@ class CustomQueueWorker {
         this.isProcessingBatch = true;
 
         try {
+            // Heartbeat: Announce this worker instance is alive (5 second TTL)
+            // Used by recoverStrandedJobs to prevent restarting instances from stealing in-flight jobs
+            await redis.set(REDIS_KEYS.queue.workerHeartbeat(), 'alive', 'EX', 5);
+
             const rateLimitMax = CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC ;
             const highWeight = CONSTANTS.QUEUE?.HIGH_PRIORITY_WEIGHT;
             const lowWeight = CONSTANTS.QUEUE?.LOW_PRIORITY_WEIGHT;

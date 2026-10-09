@@ -39,7 +39,8 @@ export const REDIS_KEYS = {
         low: () => `${REDIS_KEYS.PREFIX.QUEUE}:low`,
         processing: () => `${REDIS_KEYS.PREFIX.QUEUE}:processing`,
         dlq: () => `${REDIS_KEYS.PREFIX.QUEUE}:dlq`,
-        rateLimit: (sec) => `${REDIS_KEYS.PREFIX.QUEUE}:ratelimit:${sec}`
+        rateLimit: (sec) => `${REDIS_KEYS.PREFIX.QUEUE}:ratelimit:${sec}`,
+        workerHeartbeat: () => `${REDIS_KEYS.PREFIX.QUEUE}:worker:heartbeat`
     }
 };
 
