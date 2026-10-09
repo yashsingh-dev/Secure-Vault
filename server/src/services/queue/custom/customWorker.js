@@ -2,6 +2,8 @@ import redis from '../../../db/redis.js';
 import REDIS_KEYS from '../../../config/redisKeys.js';
 import { CONSTANTS } from '../../../config/constants.js';
 import { logger } from '../../../lib/logger.js';
+import userModel from '../../../models/user.model.js';
+import { EMAIL_JOB_TYPES } from './customQueueProducer.js';
 import dispatchEmailJob from './jobDispatcher.js';
 
 class CustomQueueWorker {
@@ -23,7 +25,7 @@ class CustomQueueWorker {
 
         this.isRunning = true;
         logger.info(
-            { intervalMs: this.intervalMs, rateLimitPerSec: CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC || 10 },
+            { intervalMs: this.intervalMs, rateLimitPerSec: CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC },
             'Starting CustomQueueWorker interval loop'
         );
 
@@ -76,6 +78,9 @@ class CustomQueueWorker {
         if (recovered > 0) {
             logger.info({ recoveredCount: recovered }, 'Recovered stranded in-flight jobs back to high queue');
         }
+        else {
+            logger.info('No stranded jobs to recover');
+        }
     }
 
     /**
@@ -92,9 +97,9 @@ class CustomQueueWorker {
         this.isProcessingBatch = true;
 
         try {
-            const rateLimitMax = CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC || 10;
-            const highWeight = CONSTANTS.QUEUE?.HIGH_PRIORITY_WEIGHT || 8;
-            const lowWeight = CONSTANTS.QUEUE?.LOW_PRIORITY_WEIGHT || 2;
+            const rateLimitMax = CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC ;
+            const highWeight = CONSTANTS.QUEUE?.HIGH_PRIORITY_WEIGHT;
+            const lowWeight = CONSTANTS.QUEUE?.LOW_PRIORITY_WEIGHT;
 
             // 1. Check current second rate limit quota in Redis
             const currentSecond = Math.floor(Date.now() / 1000);
@@ -122,7 +127,7 @@ class CustomQueueWorker {
                 jobsToProcess.push(JSON.parse(rawJob));
             }
 
-            // If high queue didn't consume all slots, allow low queue to borrow the remainder
+            // If high queue didn't consume all tokens, allow low queue to borrow the remainder tokens
             const remainingTokensForLow = availableTokens - jobsToProcess.length;
             const actualLowQuota = Math.min(remainingTokensForLow, targetLowCount + (targetHighCount - jobsToProcess.length));
 
@@ -172,7 +177,7 @@ class CustomQueueWorker {
 
             // Dispatch Email
             const result = await dispatchEmailJob(job);
-
+ 
             if (result.success) {
                 // Successful send: Acknowledge & remove from processing list
                 await redis.lrem(procKey, 1, rawJobString);
@@ -196,7 +201,7 @@ class CustomQueueWorker {
         // Atomically remove from processing queue
         await redis.lrem(procKey, 1, rawJobString);
 
-        if (job.attempts >= (job.maxAttempts || 3)) {
+        if (job.attempts >= (job.maxAttempts || CONSTANTS.QUEUE?.MAX_ATTEMPTS || 3)) {
             // Exceeded max retries -> Move to Dead Letter Queue (DLQ)
             job.lastError = errorMessage;
             await redis.lpush(REDIS_KEYS.queue.dlq(), JSON.stringify(job));
@@ -204,6 +209,29 @@ class CustomQueueWorker {
                 { jobId: job.id, type: job.type, to: job.to, attempts: job.attempts, err: errorMessage },
                 'Email job exceeded max attempts; moved to DLQ'
             );
+
+            // Roll back user OTP state in MongoDB & Redis so the user is not stuck on a dead cooldown
+            if (job.type === EMAIL_JOB_TYPES.OTP && job.payload?.userId) {
+                try {
+                    const userId = job.payload.userId;
+                    await Promise.all([
+                        userModel.updateOne(
+                            { _id: userId },
+                            { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                        ),
+                        redis.del(REDIS_KEYS.userOtp(userId))
+                    ]);
+                    logger.info(
+                        { userId, recipient: job.to },
+                        'Successfully rolled back user OTP state in DB and Redis after delivery exhaustion'
+                    );
+                } catch (rollbackErr) {
+                    logger.error(
+                        { err: rollbackErr.message, userId: job.payload?.userId },
+                        'Failed to roll back user OTP state after job exhaustion'
+                    );
+                }
+            }
         } else {
             // Re-queue into high or low queue for retry
             const targetQueue = job.priority === 'low' ? REDIS_KEYS.queue.low() : REDIS_KEYS.queue.high();
@@ -214,6 +242,8 @@ class CustomQueueWorker {
                 'Email job failed; re-enqueued for retry'
             );
         }
+
+        
     }
 }
 

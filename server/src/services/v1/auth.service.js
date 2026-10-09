@@ -100,7 +100,7 @@ const login = async (email, password) => {
             const result = await queueService.addEmailJob({
                 type: EMAIL_JOB_TYPES.OTP,
                 to: currentUser.email,
-                payload: { otp },
+                payload: { otp, userId: userIdStr },
                 priority: EMAIL_PRIORITIES.HIGH,
                 ttlSeconds: otpTtlSeconds
             });

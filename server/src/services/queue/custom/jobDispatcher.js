@@ -1,4 +1,4 @@
-import { sendOTPEmail, sendLoginAlertEmail } from '../../../utils/sendMail.utils.js';
+import { sendOTPEmail, sendLoginAlertEmail, sendWelcomeEmail } from '../../../utils/sendMail.utils.js';
 import { EMAIL_JOB_TYPES } from './customQueueProducer.js';
 import { logger } from '../../../lib/logger.js';
 
@@ -29,6 +29,17 @@ export async function dispatchEmailJob(job) {
                 const result = await sendLoginAlertEmail(job.to, { ip, device, time });
                 if (!result.success) {
                     throw new Error(result.error?.message || 'Failed to dispatch login alert email');
+                }
+                return { success: true };
+            }
+
+            case EMAIL_JOB_TYPES.WELCOME: {
+                const name = job.payload?.name || 'there';
+                const dashboardUrl = job.payload?.dashboardUrl;
+
+                const result = await sendWelcomeEmail(job.to, { name, dashboardUrl });
+                if (!result.success) {
+                    throw new Error(result.error?.message || 'Failed to dispatch welcome email');
                 }
                 return { success: true };
             }

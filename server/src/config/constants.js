@@ -13,7 +13,7 @@ export const CONSTANTS = {
         BLACKLIST_TOKEN: 10 * 60 // 10 minutes (600 seconds)
     },
     OTP: {
-        TESTING: false,
+        TESTING: true,
         LENGTH: 6,
         EXPIRY_MS: 15 * 60 * 1000, // 15 minutes
         COOL_DOWN_MS: 60 * 1000, // 1 minute
@@ -35,6 +35,7 @@ export const CONSTANTS = {
         DRIVER: 'custom', // 'custom' | 'bullmq'
         EMAIL_RATE_LIMIT_PER_SEC: 7,
         HIGH_PRIORITY_WEIGHT: 5,
-        LOW_PRIORITY_WEIGHT: 2
+        LOW_PRIORITY_WEIGHT: 2,
+        MAX_ATTEMPTS: 3
     }
 };

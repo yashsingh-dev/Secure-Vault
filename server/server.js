@@ -12,7 +12,6 @@ const server = http.createServer(app);
 
 server.listen(PORT, () => {
     logger.info({ port: PORT, environment: NODE_ENV }, `HTTP server running on port ${PORT} [${NODE_ENV}]`);
-    // Start background queue worker
     queueService.startWorker();
 });
 

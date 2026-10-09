@@ -2,11 +2,10 @@ import { CONSTANTS } from '../../config/constants.js';
 import customQueueProducer, { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from './custom/customQueueProducer.js';
 import customQueueWorker from './custom/customWorker.js';
 
+const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
+
 /**
  * Unified Queue Service Entry Point (Facade / Adapter)
- * 
- * Future: When CONSTANTS.QUEUE.DRIVER === 'bullmq', this can delegate
- * to BullMQ instead of the custom queue producer/worker seamlessly.
  */
 const queueService = {
     /**
@@ -20,34 +19,21 @@ const queueService = {
      * @param {number} [jobParams.ttlSeconds=300]
      */
     async addEmailJob(jobParams) {
-        const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
-
-        if (driver === 'custom') {
-            return await customQueueProducer.addJob(jobParams);
-        }
-
-        // BullMQ driver placeholder - will plug in once implemented
-        return await customQueueProducer.addJob(jobParams);
+        if (driver === 'custom') return await customQueueProducer.addJob(jobParams);
     },
 
     /**
      * Start the background queue consumer worker.
      */
     startWorker() {
-        const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
-        if (driver === 'custom') {
-            customQueueWorker.start();
-        }
+        if (driver === 'custom') customQueueWorker.start();
     },
 
     /**
      * Stop the background queue consumer worker cleanly.
      */
     stopWorker() {
-        const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
-        if (driver === 'custom') {
-            customQueueWorker.stop();
-        }
+        if (driver === 'custom') customQueueWorker.stop();
     },
 
     /**

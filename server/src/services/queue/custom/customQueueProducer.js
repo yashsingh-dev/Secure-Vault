@@ -2,15 +2,14 @@ import crypto from 'crypto';
 import redis from '../../../db/redis.js';
 import REDIS_KEYS from '../../../config/redisKeys.js';
 import { logger } from '../../../lib/logger.js';
-
-const MAX_ATTEMPTS = 3;
+import { CONSTANTS } from '../../../config/constants.js';
 
 /**
  * Valid priority levels for email jobs.
  */
 export const EMAIL_PRIORITIES = {
-    HIGH: 'high',   // OTPs, Password Resets, MFA (Processed first)
-    LOW: 'low'      // Login alerts, Welcome emails, digest (Processed second)
+    HIGH: 'high',   
+    LOW: 'low'
 };
 
 /**
@@ -55,7 +54,7 @@ export const customQueueProducer = {
                 payload,
                 priority: normalizedPriority,
                 attempts: 0,
-                maxAttempts: MAX_ATTEMPTS,
+                maxAttempts: CONSTANTS.QUEUE.MAX_ATTEMPTS,
                 createdAt: Date.now(),
                 expiresAt: Date.now() + (ttlSeconds * 1000)
             };

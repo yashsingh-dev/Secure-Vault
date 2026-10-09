@@ -14,15 +14,15 @@ const Validate = { body: validate };
 const router = express.Router();
 
 router.post('/login',
-    RateLimit.loginBurstLimiter,      // Tier 1: Max 5 reqs per 1 min
-    RateLimit.loginSustainedLimiter,  // Tier 2: Max 10 reqs per 5 mins
-    Recaptcha.verify,
+    RateLimit.loginBurstLimiter,      
+    RateLimit.loginSustainedLimiter, 
+    // Recaptcha.verify,
     Validate.body(schemas.loginSchema),
     Controller.login
 );
 
 router.post('/register',
-    RateLimit.registerLimiter,        // Max 5 registrations per 1 hour
+    RateLimit.registerLimiter,       
     Recaptcha.verify,
     Validate.body(schemas.registerSchema),
     Controller.register
@@ -35,25 +35,25 @@ router.post('/google',
 );
 
 router.post('/sendOtp',
-    RateLimit.otpSendLimiter,         // Max 3 requests per 15 mins per email
+    RateLimit.otpSendLimiter,         
     Validate.body(schemas.sendOtpSchema),
     Controller.sendOTP
 );
 
 router.post('/verifyOtpForReset',
-    RateLimit.otpVerifyLimiter,       // Max 5 attempts per 15 mins per email
+    RateLimit.otpVerifyLimiter,       
     Validate.body(schemas.otpForResetSchema),
     Controller.verifyOtpForReset
 );
 
 router.post('/resetPassword',
-    RateLimit.passwordResetLimiter,   // Max 3 password reset submissions per 1 hour
+    RateLimit.passwordResetLimiter,   
     Validate.body(schemas.resetPasswordSchema),
     Controller.resetPassword
 );
 
 router.post('/verifyOtp',
-    RateLimit.otpVerifyLimiter,       // Max 5 attempts per 15 mins per email
+    RateLimit.otpVerifyLimiter,       
     Validate.body(schemas.otpSchema),
     Controller.verifyOTP
 );
