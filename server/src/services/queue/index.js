@@ -40,7 +40,7 @@ const queueService = {
      * Get queue metrics / lengths
      */
     async getMetrics() {
-        return await customQueueProducer.getQueueLengths();
+        if(driver === 'custom') return await customQueueProducer.getQueueLengths();
     }
 };
 

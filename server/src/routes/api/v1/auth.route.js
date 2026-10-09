@@ -16,7 +16,7 @@ const router = express.Router();
 router.post('/login',
     RateLimit.loginBurstLimiter,      
     RateLimit.loginSustainedLimiter, 
-    // Recaptcha.verify,
+    Recaptcha.verify,
     Validate.body(schemas.loginSchema),
     Controller.login
 );

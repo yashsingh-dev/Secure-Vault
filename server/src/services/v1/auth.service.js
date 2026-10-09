@@ -6,7 +6,6 @@ import ApiError from "../../utils/ApiError.js";
 import { createHash, verifyHash } from "../../utils/bcrypt.utils.js";
 import secureHash from "../../utils/crypto.utils.js";
 import generateOTP from "../../utils/otp.utils.js";
-import { sendOTPEmail } from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { safeRedis } from "../../db/redis.js";
 import REDIS_KEYS from "../../config/redisKeys.js";
@@ -170,11 +169,20 @@ const register = async (name, email, password) => {
 
     // Send Email
     try {
-        const result = await sendOTPEmail(new_user.email, otp);
+        const result = await queueService.addEmailJob({
+            type: EMAIL_JOB_TYPES.OTP,
+            to: new_user.email,
+            payload: { otp, userId: new_user._id.toString() },
+            priority: EMAIL_PRIORITIES.HIGH,
+            ttlSeconds: CONSTANTS.OTP.EXPIRY_MS / 1000
+        });
         if (!result.success) throw new Error(result.error);
+
     } catch (error) {
-        // Delete user if email fails to prevent deadlock (cleanup)
-        await userModel.deleteOne({ _id: new_user._id });
+        await userModel.updateOne(
+            { _id: new_user._id },
+            { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+        )
         throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
     }
 
@@ -255,11 +263,19 @@ const googleAuth = async (code) => {
         if (new_user) {
             // Send Email
             try {
-                const result = await sendOTPEmail(new_user.email, otp);
+                const result = await queueService.addEmailJob({
+                    type: EMAIL_JOB_TYPES.OTP,
+                    to: new_user.email,
+                    payload: { otp, userId: new_user._id.toString() },
+                    priority: EMAIL_PRIORITIES.HIGH,
+                    ttlSeconds: CONSTANTS.OTP.EXPIRY_MS / 1000
+                });
                 if (!result.success) throw new Error(result.error);
             } catch (error) {
-                // Delete user if email fails to prevent deadlock (cleanup)
-                await userModel.deleteOne({ _id: new_user._id });
+                await userModel.updateOne(
+                    { _id: new_user._id },
+                    { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                )
                 throw new ApiError(500, 'Unable to send verification email. Please try again in a few moments.');
             }
 
@@ -363,14 +379,22 @@ const googleAuth = async (code) => {
 
         // Send email; if sending fails, roll back the OTP in DB and Redis
         try {
-            const result = await sendOTPEmail(currentUser.email, otp);
+            const result = await queueService.addEmailJob({
+                type: EMAIL_JOB_TYPES.OTP,
+                to: currentUser.email,
+                payload: { otp, userId: userIdStr },
+                priority: EMAIL_PRIORITIES.HIGH,
+                ttlSeconds: otpTtlSeconds
+            });
             if (!result.success) throw new Error(result.error);
         } catch (error) {
-            await userModel.updateOne(
-                { _id: currentUser._id },
-                { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
-            );
-            await safeRedis.del(REDIS_KEYS.userOtp(userIdStr));
+            await Promise.all([
+                userModel.updateOne(
+                    { _id: currentUser._id },
+                    { $set: { otp: null, otpExpiry: null, otpCoolDown: null, otpAttempts: 0 } }
+                ),
+                safeRedis.del(REDIS_KEYS.userOtp(userIdStr))
+            ]);
             throw new ApiError(500, 'Unable to send verification code. Please try again.');
         }
 
@@ -562,8 +586,14 @@ const sendOTP = async (email) => {
 
     // 5. Send Email with dual-rollback on failure (MongoDB + Redis)
     try {
-        const result = await sendOTPEmail(email, otp);
-        if (result && !result.success) throw new Error(result.error);
+        const result = await queueService.addEmailJob({
+            type: EMAIL_JOB_TYPES.OTP,
+            to: email,
+            payload: { otp, userId: userIdStr },
+            priority: EMAIL_PRIORITIES.HIGH,
+            ttlSeconds: otpTtl
+        });
+        if (!result.success) throw new Error(result.error);
     } catch (error) {
         // Dual Rollback: Wipe OTP from MongoDB and delete from Redis
         await Promise.all([
