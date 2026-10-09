@@ -21,6 +21,7 @@ describe('Unit: validateEnv Config', () => {
         process.env.OAUTH_GOOGLE_CLIENT_ID = 'google-client-id';
         process.env.OAUTH_GOOGLE_SECRET = 'google-secret';
         process.env.RECAPTCHA_SECRET_KEY = 'recaptcha-key';
+        process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 
         expect(() => validateEnv()).not.toThrow();
     });
@@ -32,6 +33,7 @@ describe('Unit: validateEnv Config', () => {
         process.env.OAUTH_GOOGLE_CLIENT_ID = 'google-client-id';
         process.env.OAUTH_GOOGLE_SECRET = 'google-secret';
         process.env.RECAPTCHA_SECRET_KEY = 'recaptcha-key';
+        process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 
         delete process.env.PORT;
         delete process.env.CLIENT_URL_DEV;

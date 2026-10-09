@@ -12,7 +12,8 @@ const REQUIRED_KEYS = [
     'SENDER_EMAIL',
     'OAUTH_GOOGLE_CLIENT_ID',
     'OAUTH_GOOGLE_SECRET',
-    'RECAPTCHA_SECRET_KEY'
+    'RECAPTCHA_SECRET_KEY',
+    'REDIS_URL'
 ];
 
 /**
@@ -26,8 +27,7 @@ const OPTIONAL_KEYS = [
     { key: 'JWT_ACCESS_KEY', default: 'default-key' },
     { key: 'JWT_REFRESH_KEY', default: 'default-key' },
     { key: 'JWT_RESET_KEY', default: 'default-key' },
-    { key: 'CSRF_SECRET', default: 'default-key' },
-    { key: 'REDIS_URL', default: 'redis://127.0.0.1:6379' }
+    { key: 'CSRF_SECRET', default: 'default-key' }
 ];
 
 /**
@@ -233,6 +233,61 @@ export const validateConstants = () => {
 
     // 5. Validate Password rules
     assertPositiveInteger(CONSTANTS.PASSWORD?.MIN_LENGTH, 'CONSTANTS.PASSWORD.MIN_LENGTH');
+
+    // 6. Validate QUEUE configuration
+    const queue = CONSTANTS.QUEUE;
+    if (!queue || typeof queue !== 'object') {
+        errors.push('CONSTANTS.QUEUE must be defined as an object');
+    } else {
+        // Condition 1: DRIVER must be 'custom' or 'bullmq' (cannot be null, undefined, or empty string)
+        const allowedDrivers = ['custom', 'bullmq'];
+        if (!queue.DRIVER || typeof queue.DRIVER !== 'string' || !allowedDrivers.includes(queue.DRIVER.trim().toLowerCase())) {
+            errors.push(`CONSTANTS.QUEUE.DRIVER must be either 'custom' or 'bullmq'; received: ${JSON.stringify(queue.DRIVER)}`);
+        }
+
+        // Validate EMAIL_RATE_LIMIT_PER_SEC
+        assertPositiveInteger(queue.EMAIL_RATE_LIMIT_PER_SEC, 'CONSTANTS.QUEUE.EMAIL_RATE_LIMIT_PER_SEC');
+
+        // Condition 2: HIGH_PRIORITY_WEIGHT and LOW_PRIORITY_WEIGHT
+        // - Cannot be undefined or null
+        // - Cannot be greater than EMAIL_RATE_LIMIT_PER_SEC
+        // - Their sum cannot be greater than EMAIL_RATE_LIMIT_PER_SEC
+        // - Their sum must be > 0 (one of them can be 0, but not both)
+        const highWeight = queue.HIGH_PRIORITY_WEIGHT;
+        const lowWeight = queue.LOW_PRIORITY_WEIGHT;
+        const rateLimit = queue.EMAIL_RATE_LIMIT_PER_SEC;
+
+        const isNonNegativeInteger = (val) => Number.isInteger(val) && val >= 0;
+
+        if (!isNonNegativeInteger(highWeight)) {
+            errors.push(`CONSTANTS.QUEUE.HIGH_PRIORITY_WEIGHT must be a non-negative integer (>= 0); received: ${JSON.stringify(highWeight)}`);
+        }
+        if (!isNonNegativeInteger(lowWeight)) {
+            errors.push(`CONSTANTS.QUEUE.LOW_PRIORITY_WEIGHT must be a non-negative integer (>= 0); received: ${JSON.stringify(lowWeight)}`);
+        }
+
+        if (isNonNegativeInteger(highWeight) && isNonNegativeInteger(lowWeight) && Number.isInteger(rateLimit)) {
+            if (highWeight > rateLimit) {
+                errors.push(`CONSTANTS.QUEUE.HIGH_PRIORITY_WEIGHT (${highWeight}) cannot be greater than EMAIL_RATE_LIMIT_PER_SEC (${rateLimit})`);
+            }
+            if (lowWeight > rateLimit) {
+                errors.push(`CONSTANTS.QUEUE.LOW_PRIORITY_WEIGHT (${lowWeight}) cannot be greater than EMAIL_RATE_LIMIT_PER_SEC (${rateLimit})`);
+            }
+            if (highWeight + lowWeight > rateLimit) {
+                errors.push(`The sum of HIGH_PRIORITY_WEIGHT (${highWeight}) and LOW_PRIORITY_WEIGHT (${lowWeight}) [sum: ${highWeight + lowWeight}] cannot exceed EMAIL_RATE_LIMIT_PER_SEC (${rateLimit})`);
+            }
+            if (highWeight + lowWeight <= 0) {
+                errors.push(`The sum of HIGH_PRIORITY_WEIGHT (${highWeight}) and LOW_PRIORITY_WEIGHT (${lowWeight}) must be strictly greater than 0`);
+            }
+        }
+
+        // Condition 3: MAX_ATTEMPTS
+        // - Cannot be null or undefined
+        // - Must be >= 1 (strictly greater than 0, non-negative, non-zero)
+        if (!Number.isInteger(queue.MAX_ATTEMPTS) || queue.MAX_ATTEMPTS < 1) {
+            errors.push(`CONSTANTS.QUEUE.MAX_ATTEMPTS must be an integer >= 1; received: ${JSON.stringify(queue.MAX_ATTEMPTS)}`);
+        }
+    }
 
     // If any constant validation error exists, halt server startup immediately
     if (errors.length > 0) {
