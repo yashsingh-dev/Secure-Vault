@@ -101,3 +101,25 @@ Implement a 3-state Circuit Breaker (`CLOSED`, `OPEN`, `HALF-OPEN`) using Redis 
 4. **Benefits:**
    * Eliminates cascading delays and socket timeouts during outages.
    * Guarantees zero downtime for critical authentication OTPs.
+
+---
+
+## 3. Architecture Decision: Re-enqueued Jobs Delay Mechanism (LPUSH vs. RPUSH)
+
+### Context & Design Choice
+In `customWorker.js`, when an email job experiences a retryable delivery failure (e.g., temporary provider network issue or 5xx response), the job is re-enqueued using `LPUSH`:
+
+```javascript
+await redis.lpush(targetQueue, JSON.stringify(job));
+```
+
+While standard FIFO (First In, First Out) consumers typically pull from the tail via `RPOPLPUSH`, re-enqueueing to the head with `LPUSH` means the failed job is placed at the end of the line, behind all other newly submitted jobs.
+
+### Rationale & Business Logic
+1. **Natural Jitter & Backoff Delay:**
+   If a third-party email provider experiences a temporary outage or rate-limiting spike, retrying the failed job *immediately* on the very next tick (`RPUSH`) often causes subsequent immediate failures against the still-recovering service.
+2. **Fairness to Fresh User Requests:**
+   Pushing the failed job with `LPUSH` allows new sign-up and authentication requests to proceed without being blocked by an already failing job.
+3. **Recovery Window:**
+   The failing job gets a natural breathing window of several seconds (depending on current queue depth) before reaching the tail for its next retry attempt, providing the third-party service sufficient time to recover.
+

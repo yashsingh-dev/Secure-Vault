@@ -124,7 +124,7 @@ class CustomQueueWorker {
             for (let i = 0; i < targetHighCount; i++) {
                 const rawJob = await redis.rpoplpush(REDIS_KEYS.queue.high(), REDIS_KEYS.queue.processing());
                 if (!rawJob) break; // High queue is currently empty
-                jobsToProcess.push(JSON.parse(rawJob));
+                jobsToProcess.push({ job: JSON.parse(rawJob), rawString: rawJob });
             }
 
             // If high queue didn't consume all tokens, allow low queue to borrow the remainder tokens
@@ -135,7 +135,7 @@ class CustomQueueWorker {
             for (let i = 0; i < actualLowQuota; i++) {
                 const rawJob = await redis.rpoplpush(REDIS_KEYS.queue.low(), REDIS_KEYS.queue.processing());
                 if (!rawJob) break; // Low queue is empty
-                jobsToProcess.push(JSON.parse(rawJob));
+                jobsToProcess.push({ job: JSON.parse(rawJob), rawString: rawJob });
             }
 
             if (jobsToProcess.length === 0) {
@@ -150,7 +150,7 @@ class CustomQueueWorker {
 
             // 4. Process all pulled jobs in parallel non-blocking I/O
             await Promise.allSettled(
-                jobsToProcess.map((job) => this.handleJob(job))
+                jobsToProcess.map(({ job, rawString }) => this.handleJob(job, rawString))
             );
 
         } catch (err) {
@@ -162,16 +162,17 @@ class CustomQueueWorker {
 
     /**
      * Process an individual job, handling TTL expiry, dispatch, and retries.
+     * @param {Object} job - Parsed job object
+     * @param {string} rawString - Exact original serialized string from Redis
      */
-    async handleJob(job) {
-        const rawJobString = JSON.stringify(job);
+    async handleJob(job, rawString) {
         const procKey = REDIS_KEYS.queue.processing();
 
         try {
             // Check TTL: Drop stale jobs if expired (e.g., OTP code validity window passed)
             if (job.expiresAt && Date.now() > job.expiresAt) {
                 logger.warn({ jobId: job.id, type: job.type, to: job.to }, 'Dropping expired email job from queue');
-                await redis.lrem(procKey, 1, rawJobString);
+                await redis.lrem(procKey, 1, rawString);
                 return;
             }
 
@@ -179,15 +180,15 @@ class CustomQueueWorker {
             const result = await dispatchEmailJob(job);
  
             if (result.success) {
-                // Successful send: Acknowledge & remove from processing list
-                await redis.lrem(procKey, 1, rawJobString);
+                // Successful send: Acknowledge & remove from processing list using original exact string
+                await redis.lrem(procKey, 1, rawString);
                 logger.info({ jobId: job.id, type: job.type, to: job.to }, 'Email job successfully processed');
             } else {
                 // Dispatch failed: Increment attempt count and retry or route to DLQ
-                await this.handleJobFailure(job, rawJobString, result.error);
+                await this.handleJobFailure(job, rawString, result.error);
             }
         } catch (err) {
-            await this.handleJobFailure(job, rawJobString, err.message);
+            await this.handleJobFailure(job, rawString, err.message);
         }
     }
 
