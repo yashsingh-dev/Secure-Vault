@@ -55,4 +55,59 @@ const sendOTPEmail = async (email, otp) => {
     }
 }
 
-export default sendOTPEmail;
+const sendLoginAlertEmail = async (email, { ip = 'Unknown IP', device = 'Unknown Device', time = new Date().toUTCString() } = {}) => {
+    try {
+        if (CONSTANTS.OTP.TESTING) {
+            logger.info({ email, ip, device }, 'Testing mode active: Login alert generated without dispatching live email');
+            return { success: true, data: { ip, device } };
+        }
+
+        const { data, error } = await resend.emails.send({
+            from: 'Secure Vault <' + (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev') + '>',
+            to: [email],
+            subject: 'Security Alert: New Sign-In Detected',
+            html: `
+            <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h2 style="color: #1e293b; text-align: center;">New Sign-In Detected</h2>
+                    <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+                        Hello,
+                    </p>
+                    <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+                        A new sign-in was just recorded on your Secure Vault account:
+                    </p>
+                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px 20px; border-radius: 8px; margin: 20px 0;">
+                        <ul style="color: #334155; line-height: 1.8; margin: 0; padding-left: 20px; font-size: 15px;">
+                            <li><strong>Device:</strong> ${device}</li>
+                            <li><strong>IP Address:</strong> ${ip}</li>
+                            <li><strong>Time:</strong> ${time}</li>
+                        </ul>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">
+                        If this was you, you can safely ignore this notification. If you did not initiate this login, please change your password immediately.
+                    </p>
+                    <hr style="border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;">
+                    <p style="color: #bbbbbb; font-size: 12px; text-align: center;">
+                        &copy; 2026 Secure Vault. All rights reserved.
+                    </p>
+                </div>
+            </div>
+            `
+        });
+
+        if (error) {
+            logger.error({ err: error, recipient: email }, 'Resend service rejected login alert email');
+            return { success: false, error };
+        }
+
+        return { success: true, data };
+    } catch (err) {
+        logger.error({ err: err.message, recipient: email }, 'Unexpected error encountered while dispatching login alert email');
+        return { success: false, error: err };
+    }
+};
+
+export {
+    sendOTPEmail,
+    sendLoginAlertEmail
+};

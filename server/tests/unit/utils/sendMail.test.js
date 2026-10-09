@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import sendOTPEmail from '../../../src/utils/sendMail.utils.js';
+import { sendOTPEmail } from '../../../src/utils/sendMail.utils.js';
 import resend from '../../../src/lib/resend.js';
 import { CONSTANTS } from '../../../src/config/constants.js';
 

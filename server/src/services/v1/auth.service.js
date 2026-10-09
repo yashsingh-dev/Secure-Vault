@@ -6,7 +6,7 @@ import ApiError from "../../utils/ApiError.js";
 import { createHash, verifyHash } from "../../utils/bcrypt.utils.js";
 import secureHash from "../../utils/crypto.utils.js";
 import generateOTP from "../../utils/otp.utils.js";
-import sendOTPEmail from "../../utils/sendMail.utils.js";
+import { sendOTPEmail } from "../../utils/sendMail.utils.js";
 import jwt from 'jsonwebtoken';
 import { safeRedis } from "../../db/redis.js";
 import REDIS_KEYS from "../../config/redisKeys.js";
@@ -14,6 +14,7 @@ import { parseUserAgent } from "../../utils/device.utils.js";
 import mongoose from "mongoose";
 import { checkUserBlock } from "../../utils/authCore.utils.js";
 import { logger } from "../../lib/logger.js";
+import queueService, { EMAIL_JOB_TYPES, EMAIL_PRIORITIES } from "../queue/index.js";
 
 const login = async (email, password) => {
     // 1. Find User in MongoDB (Source of Truth for sensitive password hash)
@@ -96,8 +97,15 @@ const login = async (email, password) => {
 
         // Send email; if sending fails, roll back both DB and Redis OTP Bucket
         try {
-            const result = await sendOTPEmail(currentUser.email, otp);
+            const result = await queueService.addEmailJob({
+                type: EMAIL_JOB_TYPES.OTP,
+                to: currentUser.email,
+                payload: { otp },
+                priority: EMAIL_PRIORITIES.HIGH,
+                ttlSeconds: otpTtlSeconds
+            });
             if (!result.success) throw new Error(result.error);
+
         } catch (error) {
             await Promise.all([
                 userModel.updateOne(

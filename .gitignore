@@ -145,7 +145,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
-Testing
+k6_testing
 
 # Untracked project notes
 ISSUES.md
