@@ -6,6 +6,7 @@ import { safeRedis } from '../../../src/db/redis.js';
 import * as bcryptUtils from '../../../src/utils/bcrypt.utils.js';
 import * as authCoreUtils from '../../../src/utils/authCore.utils.js';
 import jwt from 'jsonwebtoken';
+import emailNotificationService from '../../../src/services/notification/email/index.js';
 
 describe('Unit: auth.service Business Logic', () => {
     const mockUserId = '64f1a2b3c4d5e6f7a8b9c0d1';
@@ -195,6 +196,57 @@ describe('Unit: auth.service Business Logic', () => {
             const result = await authService.verifyOTP(mockEmail, '123456');
             expect(result.isNewUser).toBe(false);
             expect(result.user.isVerified).toBe(true);
+        });
+    });
+
+    describe('verifyResetOtp', () => {
+        it('should successfully verify reset OTP, burn it, generate resetToken and not send any emails', async () => {
+            vi.spyOn(safeRedis, 'get').mockImplementation(async (key) => {
+                if (key.includes('email:to:id')) return mockUserId;
+                return null;
+            });
+            vi.spyOn(safeRedis, 'getJson').mockResolvedValue({
+                otp: 123456,
+                otpAttempts: 0
+            });
+
+            vi.spyOn(userModel, 'findOneAndUpdate').mockReturnValue({
+                lean: vi.fn().mockResolvedValue({
+                    _id: mockUserId,
+                    name: 'Existing User',
+                    email: mockEmail,
+                    isVerified: true
+                })
+            });
+
+            const updateOneSpy = vi.spyOn(userModel, 'updateOne').mockResolvedValue({ modifiedCount: 1 });
+            const emailSpy = vi.spyOn(emailNotificationService, 'addEmailJob').mockResolvedValue({ success: true });
+
+            const result = await authService.verifyResetOtp(mockEmail, '123456');
+
+            expect(result.token).toBeDefined();
+            expect(result.user._id).toBe(mockUserId);
+            expect(result.user.resetToken).toBe(result.token);
+            expect(updateOneSpy).toHaveBeenCalled();
+            expect(emailSpy).not.toHaveBeenCalled();
+        });
+
+        it('should throw 401 when verification code has already been burned or expired', async () => {
+            vi.spyOn(safeRedis, 'get').mockImplementation(async (key) => {
+                if (key.includes('email:to:id')) return mockUserId;
+                return null;
+            });
+            vi.spyOn(safeRedis, 'getJson').mockResolvedValue({
+                otp: 123456,
+                otpAttempts: 0
+            });
+
+            vi.spyOn(userModel, 'findOneAndUpdate').mockReturnValue({
+                lean: vi.fn().mockResolvedValue(null)
+            });
+
+            await expect(authService.verifyResetOtp(mockEmail, '123456'))
+                .rejects.toThrow('Verification code has already been used or expired.');
         });
     });
 });

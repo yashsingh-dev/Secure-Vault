@@ -1,16 +1,13 @@
 import mongoose from 'mongoose';
 import { setAuthTokens, clearTokenCookies, getAccessToken, getRefreshToken } from '../../utils/setCookies.utils.js';
-import { generateAccessToken, generateRefreshToken, generateResetToken } from '../../utils/setJwtToken.utils.js';
+import { generateAccessToken, generateRefreshToken } from '../../utils/setJwtToken.utils.js';
 import ApiError from '../../utils/ApiError.js';
 import response from '../../utils/response.utils.js';
 import { CONSTANTS } from '../../config/constants.js';
 import authService from '../../services/v1/auth.service.js';
 import userService from '../../services/v1/user.service.js';
 import { parseClientMeta } from '../../utils/device.utils.js';
-import userModel from '../../models/user.model.js';
 import asyncHandler from '../../utils/asyncHandler.utils.js';
-import { safeRedis } from '../../db/redis.js';
-import REDIS_KEYS from '../../config/redisKeys.js';
 import { logger } from '../../lib/logger.js';
 
 
@@ -151,21 +148,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
 const verifyOtpForReset = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
 
-    const { user } = await authService.verifyOTP(email, otp);
-
-    // Generate Reset Token
-    const token = await generateResetToken(user._id);
-    const resetTokenExpiry = new Date(Date.now() + CONSTANTS.RESET_TOKEN.EXPIRY_MS);
-
-    await Promise.all([
-        userModel.updateOne(
-            { _id: user._id },
-            { $set: { resetToken: token, resetTokenExpiry } }
-        ),
-
-        // Warm up Redis cache for emailToId
-        safeRedis.set(REDIS_KEYS.emailToId(email), user._id.toString(), CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
-    ]);
+    const { user, token } = await authService.verifyResetOtp(email, otp);
 
     logger.info({ userId: user._id, email: user.email }, 'OTP verified for password reset; reset token generated');
 
