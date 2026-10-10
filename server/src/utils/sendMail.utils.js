@@ -285,10 +285,84 @@ const sendWelcomeEmail = async (email, { name = 'there', dashboardUrl } = {}) =>
     }
 };
 
+/**
+ * 4. Password Reset Success Notification Email
+ */
+const sendPasswordResetSuccessEmail = async (email, { time = new Date().toUTCString() } = {}) => {
+    try {
+        if (CONSTANTS.OTP.TESTING) {
+            logger.info({ email }, 'Testing mode active: Password reset success email generated without dispatching live email');
+            return { success: true, data: { email, time } };
+        }
+
+        const contentHtml = `
+            <div style="text-align: center; margin-bottom: 24px;">
+                <div style="display: inline-block; width: 48px; height: 48px; line-height: 48px; border-radius: 50%; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80; font-size: 22px;">
+                    &#10003;
+                </div>
+                <h1 style="color: #ffffff; font-size: 22px; font-weight: 700; margin: 16px 0 8px 0; letter-spacing: -0.5px;">
+                    Password Reset Successful
+                </h1>
+                <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+                    Your account password has been updated successfully.
+                </p>
+            </div>
+
+            <!-- Details Card -->
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px;">
+                    <tr>
+                        <td style="color: #64748b; padding: 8px 0; width: 35%;">Account</td>
+                        <td style="color: #e2e8f0; font-weight: 600; padding: 8px 0; text-align: right;">${email}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b; padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.05);">Timestamp</td>
+                        <td style="color: #94a3b8; font-size: 13px; padding: 8px 0; text-align: right; border-top: 1px solid rgba(255, 255, 255, 0.05);">${time}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b; padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.05);">Security Action</td>
+                        <td style="color: #a5b4fc; font-size: 13px; font-weight: 600; padding: 8px 0; text-align: right; border-top: 1px solid rgba(255, 255, 255, 0.05);">All other sessions revoked</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Security Warning -->
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px;">
+                <p style="margin: 0; color: #fca5a5; font-size: 13px; line-height: 1.5;">
+                    <strong>Didn't make this change?</strong> If you did not reset your password, someone may have unauthorized access to your account. Please use the "Forgot Password" option to regain control or contact support immediately.
+                </p>
+            </div>
+        `;
+
+        const html = renderEmailLayout({
+            title: 'Security Notice: Password Reset Successful - Secure Vault',
+            preheader: 'Your Secure Vault account password was successfully reset.',
+            contentHtml
+        });
+
+        const { data, error } = await emailClient.send({
+            to: email,
+            subject: 'Security Notice: Your password has been reset',
+            html
+        });
+
+        if (error) {
+            logger.error({ err: error, recipient: email }, 'Email delivery service rejected password reset notification email');
+            return { success: false, error };
+        }
+
+        return { success: true, data };
+    } catch (err) {
+        logger.error({ err: err.message, recipient: email }, 'Unexpected error encountered while dispatching password reset email');
+        return { success: false, error: err };
+    }
+};
+
 export {
     sendOTPEmail,
     sendLoginAlertEmail,
-    sendWelcomeEmail
+    sendWelcomeEmail,
+    sendPasswordResetSuccessEmail
 };
 
 export default sendOTPEmail;

@@ -145,4 +145,56 @@ describe('Unit: auth.service Business Logic', () => {
             expect(deleteManySpy).toHaveBeenCalledWith({ familyId: 'fam-789' });
         });
     });
+
+    describe('verifyOTP', () => {
+        it('should mark isNewUser: true when previous user document isVerified was false', async () => {
+            vi.spyOn(safeRedis, 'get').mockImplementation(async (key) => {
+                if (key.includes('email:to:id')) return mockUserId;
+                return null;
+            });
+            vi.spyOn(safeRedis, 'getJson').mockResolvedValue({
+                otp: 123456,
+                otpAttempts: 0
+            });
+
+            vi.spyOn(userModel, 'findOneAndUpdate').mockReturnValue({
+                lean: vi.fn().mockResolvedValue({
+                    _id: mockUserId,
+                    name: 'Newbie',
+                    email: mockEmail,
+                    isVerified: false,
+                    settings: { notifyOnLogin: true }
+                })
+            });
+
+            const result = await authService.verifyOTP(mockEmail, '123456');
+            expect(result.isNewUser).toBe(true);
+            expect(result.user.isVerified).toBe(true);
+        });
+
+        it('should mark isNewUser: false when previous user document was already verified', async () => {
+            vi.spyOn(safeRedis, 'get').mockImplementation(async (key) => {
+                if (key.includes('email:to:id')) return mockUserId;
+                return null;
+            });
+            vi.spyOn(safeRedis, 'getJson').mockResolvedValue({
+                otp: 123456,
+                otpAttempts: 0
+            });
+
+            vi.spyOn(userModel, 'findOneAndUpdate').mockReturnValue({
+                lean: vi.fn().mockResolvedValue({
+                    _id: mockUserId,
+                    name: 'Existing User',
+                    email: mockEmail,
+                    isVerified: true,
+                    settings: { notifyOnLogin: true }
+                })
+            });
+
+            const result = await authService.verifyOTP(mockEmail, '123456');
+            expect(result.isNewUser).toBe(false);
+            expect(result.user.isVerified).toBe(true);
+        });
+    });
 });

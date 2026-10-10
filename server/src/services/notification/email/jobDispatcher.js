@@ -1,4 +1,4 @@
-import { sendOTPEmail, sendLoginAlertEmail, sendWelcomeEmail } from '../../../utils/sendMail.utils.js';
+import { sendOTPEmail, sendLoginAlertEmail, sendWelcomeEmail, sendPasswordResetSuccessEmail } from '../../../utils/sendMail.utils.js';
 import { EMAIL_JOB_TYPES } from './index.js';
 import { logger } from '../../../lib/logger.js';
 
@@ -32,6 +32,16 @@ export async function dispatchEmailJob(job) {
                 const result = await sendLoginAlertEmail(job.to, { ip, device, time });
                 if (!result.success) {
                     throw new Error(result.error?.message || 'Failed to dispatch login alert email');
+                }
+                return { success: true };
+            }
+
+            case EMAIL_JOB_TYPES.PASSWORD_RESET: {
+                const time = job.payload?.time || new Date().toUTCString();
+
+                const result = await sendPasswordResetSuccessEmail(job.to, { time });
+                if (!result.success) {
+                    throw new Error(result.error?.message || 'Failed to dispatch password reset success email');
                 }
                 return { success: true };
             }

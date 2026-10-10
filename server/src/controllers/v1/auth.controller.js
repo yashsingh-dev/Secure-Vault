@@ -17,12 +17,12 @@ import { logger } from '../../lib/logger.js';
 const login = asyncHandler(async (req, res) => {
     const { email, password, rememberMe } = req.body;
 
-    const { user, is2FAEnabled } = await authService.login(email, password);
+    const clientMeta = parseClientMeta(req);
+    const { user, is2FAEnabled } = await authService.login(email, password, clientMeta);
 
     if (!is2FAEnabled) {
         // Generate JWT Token
         const familyId = new mongoose.Types.ObjectId();
-        const clientMeta = parseClientMeta(req);
 
         // Generate tokens in parallel
         const [accessToken, refreshToken] = await Promise.all([
@@ -63,14 +63,12 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const googleAuth = asyncHandler(async (req, res) => {
-    const { code } = req.body;
-
-    const { user, is2FAEnabled, rememberMe = false } = await authService.googleAuth(code);
+    const clientMeta = parseClientMeta(req);
+    const { user, is2FAEnabled, rememberMe = false } = await authService.googleAuth(code, clientMeta);
 
     if (!is2FAEnabled) {
         // Generate JWT Token
         const familyId = new mongoose.Types.ObjectId();
-        const clientMeta = parseClientMeta(req);
 
         const [accessToken, refreshToken] = await Promise.all([
             generateAccessToken(user._id, user.tokenVersion, familyId),
@@ -125,11 +123,11 @@ const sendOTP = asyncHandler(async (req, res) => {
 const verifyOTP = asyncHandler(async (req, res) => {
     const { email, otp, rememberMe } = req.body;
 
-    const { user } = await authService.verifyOTP(email, otp);
+    const clientMeta = parseClientMeta(req);
+    const { user, isNewUser } = await authService.verifyOTP(email, otp, clientMeta);
 
     // Generate JWT Token
     const familyId = new mongoose.Types.ObjectId();
-    const clientMeta = parseClientMeta(req);
 
     const [accessToken, refreshToken] = await Promise.all([
         generateAccessToken(user._id, user.tokenVersion, familyId),
@@ -140,12 +138,13 @@ const verifyOTP = asyncHandler(async (req, res) => {
     setAuthTokens(res, CONSTANTS.NAME.ACCESS_TOKEN, accessToken, CONSTANTS.AUTH_TOKEN.ACCESS_TOKEN_MS);
     setAuthTokens(res, CONSTANTS.NAME.REFRESH_TOKEN, refreshToken, rememberMe ? CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS : CONSTANTS.AUTH_TOKEN.REFRESH_TOKEN_MS);
 
-    logger.info({ userId: user._id, email: user.email, familyId: familyId.toString() }, 'OTP successfully verified and session established');
+    logger.info({ userId: user._id, email: user.email, familyId: familyId.toString(), isNewUser }, 'OTP successfully verified and session established');
 
     // Send Response
     return response(res, 200, 'Verification code verified successfully.', {
         id: user._id,
-        email: user.email
+        email: user.email,
+        isNewUser
     });
 });
 

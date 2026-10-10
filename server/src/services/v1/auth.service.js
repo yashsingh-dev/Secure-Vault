@@ -15,7 +15,7 @@ import { checkUserBlock } from "../../utils/authCore.utils.js";
 import { logger } from "../../lib/logger.js";
 import emailNotificationService, { EMAIL_JOB_TYPES, EMAIL_PRIORITIES } from "../notification/email/index.js";
 
-const login = async (email, password) => {
+const login = async (email, password, clientMeta = {}) => {
     // 1. Find User in MongoDB (Source of Truth for sensitive password hash)
     const user = await userModel.findOne({ email }).select('+password').lean();
     if (!user) {
@@ -138,6 +138,21 @@ const login = async (email, password) => {
     ])
     currentUser.lastLogin = now;
 
+    // Send login alert email asynchronously (low priority, non-blocking, no rollback on failure)
+    if (currentUser.settings?.notifyOnLogin !== false) {
+        emailNotificationService.addEmailJob({
+            type: EMAIL_JOB_TYPES.LOGIN_ALERT,
+            to: currentUser.email,
+            payload: {
+                ip: clientMeta?.ip || 'Unknown IP',
+                device: clientMeta?.device ? `${clientMeta.device} (${clientMeta.browser || ''} on ${clientMeta.os || ''})`.trim() : 'Desktop',
+                time: new Date(now).toUTCString()
+            }
+        }).catch((err) => {
+            logger.warn({ userId: userIdStr, err: err.message }, 'Failed to queue login alert email');
+        });
+    }
+
     return { user: currentUser, is2FAEnabled: false };
 };
 
@@ -218,7 +233,7 @@ const register = async (name, email, password) => {
     return { user: new_user };
 };
 
-const googleAuth = async (code) => {
+const googleAuth = async (code, clientMeta = {}) => {
     let tokens;
     try {
         const response = await googleClient.getToken(code);
@@ -415,6 +430,21 @@ const googleAuth = async (code) => {
         googleLogin: currentUser.googleLogin,
         settings: currentUser.settings
     }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000);
+
+    // Send login alert email asynchronously (low priority, non-blocking, no rollback on failure)
+    if (currentUser.settings?.notifyOnLogin !== false) {
+        emailNotificationService.addEmailJob({
+            type: EMAIL_JOB_TYPES.LOGIN_ALERT,
+            to: currentUser.email,
+            payload: {
+                ip: clientMeta?.ip || 'Unknown IP',
+                device: clientMeta?.device ? `${clientMeta.device} (${clientMeta.browser || ''} on ${clientMeta.os || ''})`.trim() : 'Desktop',
+                time: new Date(now).toUTCString()
+            }
+        }).catch((err) => {
+            logger.warn({ userId: userIdStr, err: err.message }, 'Failed to queue Google login alert email');
+        });
+    }
 
     return {
         user: currentUser,
@@ -749,10 +779,21 @@ const resetPassword = async (email, password, token) => {
         safeRedis.updateUserProfile(userIdStr, { tokenVersion: updatedUser.tokenVersion })
     ]);
 
+    // Send password reset success email asynchronously (non-blocking)
+    emailNotificationService.addEmailJob({
+        type: EMAIL_JOB_TYPES.PASSWORD_RESET,
+        to: updatedUser.email,
+        payload: {
+            time: new Date().toUTCString()
+        }
+    }).catch((err) => {
+        logger.warn({ userId: userIdStr, err: err.message }, 'Failed to queue password reset confirmation email');
+    });
+
     return { user: updatedUser };
 };
 
-const verifyOTP = async (email, otp) => {
+const verifyOTP = async (email, otp, clientMeta = {}) => {
     let user = null;
     const now = Date.now();
 
@@ -897,7 +938,7 @@ const verifyOTP = async (email, otp) => {
     // 8. ATOMIC CLAIM & BURN:
     // Ensures only ONE concurrent request can successfully claim this OTP.
     // Guarantees zero race conditions even under concurrent request spam.
-    const updatedUserDoc = await userModel.findOneAndUpdate(
+    const previousUserDoc = await userModel.findOneAndUpdate(
         {
             _id: userIdStr,
             otp: otp.toString(),
@@ -913,13 +954,24 @@ const verifyOTP = async (email, otp) => {
                 lastLogin: now
             }
         },
-        { new: true }
+        { new: false }
     ).lean();
 
-    // If updatedUserDoc is null, another concurrent request already verified and burned the OTP
-    if (!updatedUserDoc) {
+    // If previousUserDoc is null, another concurrent request already verified and burned the OTP
+    if (!previousUserDoc) {
         throw new ApiError(401, 'Verification code has already been used or expired.');
     }
+
+    const isNewlyRegistered = !previousUserDoc.isVerified;
+    const updatedUserDoc = {
+        ...previousUserDoc,
+        isVerified: true,
+        lastLogin: now,
+        otp: null,
+        otpExpiry: null,
+        otpCoolDown: null,
+        otpAttempts: 0
+    };
 
     // 9. Concurrently clean OTP bucket & update User Profile Bucket in Redis
     await Promise.all([
@@ -936,7 +988,34 @@ const verifyOTP = async (email, otp) => {
         }, CONSTANTS.AUTH_TOKEN.LONG_REFRESH_TOKEN_MS / 1000)
     ]);
 
-    return { user: updatedUserDoc };
+    // 10. Notification Routing: Welcome Email for New Registration vs Login Alert for Existing 2FA Login
+    if (isNewlyRegistered) {
+        emailNotificationService.addEmailJob({
+            type: EMAIL_JOB_TYPES.WELCOME,
+            to: previousUserDoc.email,
+            payload: {
+                name: previousUserDoc.name
+            }
+        }).catch((err) => {
+            logger.warn({ userId: userIdStr, err: err.message }, 'Failed to queue welcome email');
+        });
+    } else {
+        if (previousUserDoc.settings?.notifyOnLogin !== false) {
+            emailNotificationService.addEmailJob({
+                type: EMAIL_JOB_TYPES.LOGIN_ALERT,
+                to: previousUserDoc.email,
+                payload: {
+                    ip: clientMeta?.ip || 'Unknown IP',
+                    device: clientMeta?.device ? `${clientMeta.device} (${clientMeta.browser || ''} on ${clientMeta.os || ''})`.trim() : 'Desktop',
+                    time: new Date(now).toUTCString()
+                }
+            }).catch((err) => {
+                logger.warn({ userId: userIdStr, err: err.message }, 'Failed to queue 2FA login alert email');
+            });
+        }
+    }
+
+    return { user: updatedUserDoc, isNewUser: isNewlyRegistered };
 };
 
 const refreshToken = async (oldRefreshToken) => {
