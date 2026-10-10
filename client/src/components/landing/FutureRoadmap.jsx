@@ -1,8 +1,8 @@
 import React from 'react';
 import {
-  HiOutlineQueueList,
-  HiOutlineFingerPrint,
-  HiOutlineUserGroup,
+  HiOutlineChartBarSquare,
+  HiOutlineCube,
+  HiOutlineRocketLaunch,
   HiOutlineGlobeAlt,
   HiOutlineSparkles,
   HiOutlineCpuChip
@@ -10,48 +10,48 @@ import {
 
 export const ROADMAP_ITEMS = [
   {
-    title: 'Asynchronous OTP Dispatch Engine',
-    subtitle: 'RabbitMQ / Message Queue & Worker Pool',
+    title: 'Centralized Observability & Metrics Streaming',
+    subtitle: 'Prometheus, Grafana & Log Aggregation',
     status: 'In Pipeline',
     statusColor: 'emerald',
-    icon: HiOutlineQueueList,
+    icon: HiOutlineChartBarSquare,
     phase: 'Phase 5.1',
-    description: 'Decouple transactional email delivery from the synchronous HTTP request lifecycle. Dedicated dead-letter queues (DLQ) with exponential backoff retry workers ensure zero OTP delivery drops under mail service outages.',
-    tags: ['RabbitMQ', 'AMQP 0-9-1', 'DLQ', 'Exponential Backoff', 'Worker Pool'],
-    architectureDetails: 'HTTP endpoint produces message to exchanges in < 2ms; background consumers handle Resend/SMTP dispatch with circuit breaking.'
+    description: 'Eliminate direct SSH log inspection on production hosts. Stream redacted Pino structured JSON logs and server metrics directly to Prometheus, Grafana, or Loki for sub-second log searching, dynamic filtering, real-time latency percentiles (p95, p99), and rate limit exhaustion alerting.',
+    tags: ['Prometheus', 'Grafana', 'Loki', 'Log Streaming', 'OpenTelemetry', 'Structured Telemetry'],
+    architectureDetails: 'Express backend asynchronously streams structured telemetry to central collectors, exposing a dedicated metrics scraping endpoint and multi-field query filters.'
   },
   {
-    title: 'Passkeys & WebAuthn / FIDO2',
-    subtitle: 'Hardware-Backed Cryptographic Authentication',
-    status: 'Research & PoC',
+    title: 'Multi-Container Docker Hub Distribution',
+    subtitle: 'Single-Command Deployment via Docker Compose',
+    status: 'In Pipeline',
     statusColor: 'cyan',
-    icon: HiOutlineFingerPrint,
+    icon: HiOutlineCube,
     phase: 'Phase 5.2',
-    description: 'Replace shared password secrets with public-key cryptography. Native platform authenticator support for TouchID, FaceID, Windows Hello, and YubiKey hardware tokens via the W3C WebAuthn standard.',
-    tags: ['FIDO2', 'WebAuthn', 'Biometrics', 'Public-Key Auth', 'Hardware Tokens'],
-    architectureDetails: 'Client challenges signed in device Secure Enclave; server verifies signature with stored public key cred ID.'
+    description: 'Containerize and publish optimized image layers directly to Docker Hub. Allows developers, evaluators, and interviewers to spin up the entire Secure Vault ecosystem (Express API, React Client, Redis cache, and MongoDB) with a single command without local Node version or dependency conflicts.',
+    tags: ['Docker Hub', 'Docker Compose', 'Multi-Stage Builds', 'Zero-Config Boot', 'Containerization'],
+    architectureDetails: 'Lightweight Alpine-based multi-stage Dockerfiles with layer caching, automatic health check probes, and pre-configured environment variable templates.'
   },
   {
-    title: 'Multi-Tenant Role-Based Access Control (RBAC)',
-    subtitle: 'Hierarchical Permissions & Audit Streaming',
+    title: 'Server-Side Automated CI/CD Pipeline',
+    subtitle: 'GitHub Actions & Automated Testing Harness',
     status: 'Design Phase',
     statusColor: 'amber',
-    icon: HiOutlineUserGroup,
+    icon: HiOutlineRocketLaunch,
     phase: 'Phase 5.3',
-    description: 'Granular organization hierarchies with custom role matrices, inherited permission boundaries, and real-time SIEM audit log streaming for enterprise compliance (SOC 2, ISO 27001).',
-    tags: ['RBAC', 'Multi-Tenant', 'Audit Log Streaming', 'Policy Engine', 'SOC-2'],
-    architectureDetails: 'Tenant-scoped token family boundaries with policy enforcement evaluating in Redis RAM bitmap caches.'
+    description: 'Strict, server-first continuous integration and deployment pipeline engineered specifically for backend reliability. Every push and pull request triggers automated cryptographic secret validation, executes the full 109+ Vitest suite, and builds/pushes audited server images to Docker Hub.',
+    tags: ['GitHub Actions', 'Server-Only CI/CD', 'Vitest Automation', 'Docker Hub Registry', 'Zero Downtime'],
+    architectureDetails: 'Isolated GitHub Actions runners spin up ephemeral test databases, enforce 100% test pass gates, and dispatch rolling container deployments without downtime.'
   },
   {
     title: 'Enterprise Geo-Distributed Session Sharding',
     subtitle: 'Redis Cluster Multi-Region Replication',
-    status: 'In Pipeline',
+    status: 'Research & PoC',
     statusColor: 'emerald',
     icon: HiOutlineGlobeAlt,
     phase: 'Phase 5.4',
-    description: 'Multi-region Redis cluster replication with latency-based token family routing. Sub-5ms session validation from any global edge location with active-active write coordination.',
+    description: 'Multi-region Redis cluster replication with latency-based token family routing. Delivers sub-5ms session validation from any global edge location with active-active write coordination and conflict-free replicated data types (CRDTs).',
     tags: ['Redis Cluster', 'Multi-Region', 'Edge Routing', 'Active-Active', 'Sub-5ms'],
-    architectureDetails: 'Global edge DNS routes user tokens to closest regional Redis shard with CRDT conflict resolution.'
+    architectureDetails: 'Global edge DNS routes user tokens to closest regional Redis shard with CRDT conflict resolution and automated cross-datacenter synchronization.'
   }
 ];
 
