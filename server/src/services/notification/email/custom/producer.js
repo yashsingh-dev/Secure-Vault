@@ -3,24 +3,7 @@ import redis from '../../../../db/redis.js';
 import REDIS_KEYS from '../../../../config/redisKeys.js';
 import { logger } from '../../../../lib/logger.js';
 import { CONSTANTS } from '../../../../config/constants.js';
-
-/**
- * Valid priority levels for email jobs.
- */
-export const EMAIL_PRIORITIES = {
-    HIGH: 'high',   
-    LOW: 'low'
-};
-
-/**
- * Valid notification types.
- */
-export const EMAIL_JOB_TYPES = {
-    OTP: 'OTP_VERIFICATION',
-    PASSWORD_RESET: 'PASSWORD_RESET',
-    LOGIN_ALERT: 'LOGIN_ALERT',
-    WELCOME: 'WELCOME'
-};
+import { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from '../index.js';
 
 /**
  * Custom Redis Queue Producer.

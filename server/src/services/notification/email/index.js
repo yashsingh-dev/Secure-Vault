@@ -1,6 +1,24 @@
 import { CONSTANTS } from '../../../config/constants.js';
-import customQueueProducer, { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from './custom/producer.js';
+import customQueueProducer from './custom/producer.js';
 import customQueueWorker from './custom/worker.js';
+
+/**
+ * Valid priority levels for email jobs.
+ */
+export const EMAIL_PRIORITIES = {
+    HIGH: 'high',   
+    LOW: 'low'
+};
+
+/**
+ * Valid notification types.
+ */
+export const EMAIL_JOB_TYPES = {
+    OTP: 'OTP_VERIFICATION',
+    PASSWORD_RESET: 'PASSWORD_RESET',
+    LOGIN_ALERT: 'LOGIN_ALERT',
+    WELCOME: 'WELCOME'
+};
 
 const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
 
@@ -47,5 +65,4 @@ const emailNotificationService = {
     }
 };
 
-export { EMAIL_PRIORITIES, EMAIL_JOB_TYPES };
 export default emailNotificationService;

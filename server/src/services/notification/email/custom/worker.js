@@ -3,7 +3,7 @@ import REDIS_KEYS from '../../../../config/redisKeys.js';
 import { CONSTANTS } from '../../../../config/constants.js';
 import { logger } from '../../../../lib/logger.js';
 import userModel from '../../../../models/user.model.js';
-import { EMAIL_JOB_TYPES } from './producer.js';
+import { EMAIL_JOB_TYPES } from '../index.js';
 import dispatchEmailJob from '../jobDispatcher.js';
 
 /**
@@ -243,7 +243,7 @@ class CustomQueueWorker {
 
             // Dispatch Email
             const result = await dispatchEmailJob(job);
- 
+
             if (result.success) {
                 // Successful send: Acknowledge & remove from processing list using original exact string
                 await redis.lrem(procKey, 1, rawString);

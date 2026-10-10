@@ -1,5 +1,5 @@
 import { sendOTPEmail, sendLoginAlertEmail, sendWelcomeEmail } from '../../../utils/sendMail.utils.js';
-import { EMAIL_JOB_TYPES } from './custom/producer.js';
+import { EMAIL_JOB_TYPES } from './index.js';
 import { logger } from '../../../lib/logger.js';
 
 /**
