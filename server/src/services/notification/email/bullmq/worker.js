@@ -56,7 +56,7 @@ class BullmqWorker {
             },
             {
                 connection: bullmqConnection,
-                concurrency: rateLimitMax,
+                concurrency: CONSTANTS.QUEUE?.EMAIL_WORKER_CONCURRENCY || 20,
                 limiter: {
                     max: rateLimitMax,
                     duration: 1000 // Distributed 1-second sliding bucket

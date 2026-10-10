@@ -33,6 +33,7 @@ export const CONSTANTS = {
     QUEUE: {
         DRIVER: 'bullmq', // custom or bullmq
         EMAIL_RATE_LIMIT_PER_SEC: 7,
+        EMAIL_WORKER_CONCURRENCY: 20,
         HIGH_PRIORITY_WEIGHT: 5,
         LOW_PRIORITY_WEIGHT: 2,
         MAX_ATTEMPTS: 3
