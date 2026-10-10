@@ -37,10 +37,10 @@ export const bullmqProducer = {
      * @param {string} params.to - Recipient email address
      * @param {Object} [params.payload={}] - Payload data (e.g. { otp: 123456 })
      * @param {string} [params.priority] - 'high' or 'low' (optional, falls back to mapping)
-     * @param {number} [params.ttlSeconds=300] - TTL in seconds
+     * @param {number} [params.ttlSeconds=900] - TTL in seconds (e.g., 15 min for OTPs)
      * @returns {Promise<{ success: boolean, jobId?: string, priority?: string, error?: string }>}
      */
-    async addJob({ type, to, payload = {}, priority, ttlSeconds = 300 }) {
+    async addJob({ type, to, payload = {}, priority, ttlSeconds = 900 }) {
         try {
             if (!to || typeof to !== 'string') {
                 throw new Error('Recipient email address is required.');

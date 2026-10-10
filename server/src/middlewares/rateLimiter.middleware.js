@@ -57,9 +57,9 @@ export const createRateLimiter = ({
             identifier = keyGenerator(req);
         } else {
             identifier = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-                         req.socket?.remoteAddress ||
-                         req.ip ||
-                         'unknown_client';
+                req.socket?.remoteAddress ||
+                req.ip ||
+                'unknown_client';
         }
 
         const redisKey = REDIS_KEYS.rateLimit(effectivePrefix, identifier);

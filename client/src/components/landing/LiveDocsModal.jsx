@@ -8,7 +8,8 @@ import {
   HiOutlineCheckCircle,
   HiOutlineArrowTopRightOnSquare,
   HiOutlineClipboardDocument,
-  HiOutlineCheck
+  HiOutlineCheck,
+  HiOutlineExclamationTriangle
 } from 'react-icons/hi2';
 
 export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
@@ -302,6 +303,26 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
 
           {activeTab === 'quickstart' && (
             <div className="space-y-4">
+              {/* Important Notice: reCAPTCHA Requirement */}
+              <div
+                className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
+                  isDark
+                    ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-semibold mb-1 text-amber-400">
+                  <HiOutlineExclamationTriangle className="w-4 h-4 shrink-0" />
+                  <span>Important Note: Google reCAPTCHA Verification Enforced</span>
+                </div>
+                <p className="text-[11px] mb-2 leading-relaxed opacity-90">
+                  Executing direct terminal <code className="px-1 py-0.5 rounded font-mono bg-black/20 font-bold">curl</code> commands against <code className="px-1 py-0.5 rounded font-mono bg-black/20">/api/v1/auth/login</code> or <code className="px-1 py-0.5 rounded font-mono bg-black/20">/register</code> will return <strong className="font-semibold text-rose-400">400 Bad Request</strong> because Google reCAPTCHA v2 bot protection is active and expects a valid <code className="px-1 py-0.5 rounded font-mono bg-black/20">recaptchaToken</code>.
+                </p>
+                <div className="text-[11px] leading-relaxed pt-1.5 border-t border-amber-500/20">
+                  💡 <strong>To test via terminal locally without reCAPTCHA keys:</strong> Fork or clone the repository from GitHub, set <code className="px-1 py-0.5 rounded font-mono bg-black/25 text-emerald-400 font-bold">RECAPTCHA: &#123; ENABLED: false &#125;</code> in <code className="px-1 py-0.5 rounded font-mono bg-black/25 text-amber-300">server/src/config/constants.js</code>, and run the server. It will execute seamlessly without requiring Google reCAPTCHA tokens.
+                </div>
+              </div>
+
               <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
                 Test the API trace using curl from your terminal:
               </p>

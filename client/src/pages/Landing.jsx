@@ -4,6 +4,7 @@ import HeroSection from '../components/landing/HeroSection';
 import ArchitectureFlow from '../components/landing/ArchitectureFlow';
 import FeatureMatrix from '../components/landing/FeatureMatrix';
 import RateLimitingDeepDive from '../components/landing/RateLimitingDeepDive';
+import NotificationPipeline from '../components/landing/NotificationPipeline';
 import FutureRoadmap from '../components/landing/FutureRoadmap';
 import Footer from '../components/landing/Footer';
 import LiveDocsModal from '../components/landing/LiveDocsModal';
@@ -49,9 +50,14 @@ export default function Landing() {
       {/* 25-Feature Security Matrix with Live Search */}
       <FeatureMatrix theme={theme} />
 
-      {/* Rate Limiting Deep Dive (Mathematical Model + Slider Simulator + Lua Script) */}
-      <section className={`py-24 px-4 sm:px-6 lg:px-8 ${isDark ? 'bg-[#08080d]' : 'bg-white'} border-t border-b border-black/5 dark:border-white/5 transition-colors duration-300`}>
+      {/* Rate Limiting Architecture Section */}
+      <section className={`py-24 px-4 sm:px-6 lg:px-8 ${isDark ? 'bg-[#08080d]' : 'bg-white'} border-t border-black/5 dark:border-white/5 transition-colors duration-300`}>
         <RateLimitingDeepDive theme={theme} />
+      </section>
+
+      {/* Asynchronous Notification & Queue Pipeline */}
+      <section className={`py-24 px-4 sm:px-6 lg:px-8 ${isDark ? 'bg-[#0a0a0f]' : 'bg-slate-50'} border-t border-b border-black/5 dark:border-white/5 transition-colors duration-300`}>
+        <NotificationPipeline theme={theme} />
       </section>
 
       {/* Future Scalability Roadmap */}

@@ -1,12 +1,17 @@
 import ApiError from '../utils/ApiError.js';
 import { verifyRecaptchaToken } from '../services/recaptcha.service.js';
 import asyncHandler from '../utils/asyncHandler.utils.js';
+import { CONSTANTS } from '../config/constants.js';
 
 /**
  * Express middleware to verify Google reCAPTCHA v2 token before proceeding
  * Validates token presence, calls Google's siteverify API, and checks success & expiration
  */
 export const verifyRecaptcha = asyncHandler(async (req, res, next) => {
+    if (CONSTANTS.RECAPTCHA?.ENABLED === false) {
+        return next();
+    }
+
     const token =
         req.body?.recaptchaToken ||
         req.body?.['g-recaptcha-response'] ||

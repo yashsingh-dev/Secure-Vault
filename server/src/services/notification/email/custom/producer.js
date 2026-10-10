@@ -18,10 +18,10 @@ export const customQueueProducer = {
      * @param {string} params.to - Recipient email address
      * @param {Object} params.payload - Payload data (e.g., { otp: 123456, name: 'Alice' })
      * @param {string} [params.priority] - 'high' or 'low' (optional, falls back to mapping)
-     * @param {number} [params.ttlSeconds=300] - Job Time-To-Live in seconds (e.g., 5 min for OTPs)
+     * @param {number} [params.ttlSeconds=900] - Job Time-To-Live in seconds (e.g., 15 min for OTPs)
      * @returns {Promise<{ success: boolean, jobId: string, priority: string }>}
      */
-    async addJob({ type, to, payload = {}, priority, ttlSeconds = 300 }) {
+    async addJob({ type, to, payload = {}, priority, ttlSeconds = 900 }) {
         try {
             if (!to || typeof to !== 'string') {
                 throw new Error('Recipient email address is required.');

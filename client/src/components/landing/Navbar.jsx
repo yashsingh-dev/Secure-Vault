@@ -21,6 +21,7 @@ const Navbar = ({ theme = 'dark', onToggleTheme, onOpenDocs }) => {
     { label: 'Architecture', href: '#architecture' },
     { label: 'Security Specs', href: '#features' },
     { label: 'Rate Limiter', href: '#rate-limiting' },
+    { label: 'Async Queue', href: '#notification-pipeline' },
     { label: 'Roadmap', href: '#roadmap' },
   ];
 
