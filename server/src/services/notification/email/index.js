@@ -20,6 +20,18 @@ export const EMAIL_JOB_TYPES = {
     WELCOME: 'WELCOME'
 };
 
+/**
+ * Default Priority Mapping for Email Job Types.
+ * Real-time security codes (OTP, Password Reset) are High priority.
+ * Notifications and marketing (Login Alerts, Welcome) are Low priority.
+ */
+export const DEFAULT_JOB_PRIORITIES = {
+    [EMAIL_JOB_TYPES.OTP]: EMAIL_PRIORITIES.HIGH,
+    [EMAIL_JOB_TYPES.PASSWORD_RESET]: EMAIL_PRIORITIES.HIGH,
+    [EMAIL_JOB_TYPES.LOGIN_ALERT]: EMAIL_PRIORITIES.LOW,
+    [EMAIL_JOB_TYPES.WELCOME]: EMAIL_PRIORITIES.LOW
+};
+
 const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
 
 /**
@@ -28,16 +40,24 @@ const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
 const emailNotificationService = {
     /**
      * Enqueue an email job into the active queue driver.
+     * Automatically resolves priority from DEFAULT_JOB_PRIORITIES based on jobParams.type,
+     * unless an explicit priority is passed to bypass the mapping.
      * 
      * @param {Object} jobParams
      * @param {string} jobParams.type - e.g. EMAIL_JOB_TYPES.OTP
      * @param {string} jobParams.to - Recipient email
      * @param {Object} jobParams.payload - e.g. { otp: 123456 }
-     * @param {string} [jobParams.priority='high'] - 'high' or 'low'
+     * @param {string} [jobParams.priority] - Optional override: 'high' or 'low'
      * @param {number} [jobParams.ttlSeconds=300]
      */
     async addEmailJob(jobParams) {
-        if (driver === 'custom') return await customQueueProducer.addJob(jobParams);
+        const resolvedPriority = jobParams.priority || DEFAULT_JOB_PRIORITIES[jobParams.type] || EMAIL_PRIORITIES.HIGH;
+        const normalizedParams = {
+            ...jobParams,
+            priority: resolvedPriority
+        };
+
+        if (driver === 'custom') return await customQueueProducer.addJob(normalizedParams);
         // BullMQ driver integration will plug in here
     },
 

@@ -3,7 +3,7 @@ import redis from '../../../../db/redis.js';
 import REDIS_KEYS from '../../../../config/redisKeys.js';
 import { logger } from '../../../../lib/logger.js';
 import { CONSTANTS } from '../../../../config/constants.js';
-import { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from '../index.js';
+import { EMAIL_PRIORITIES, EMAIL_JOB_TYPES, DEFAULT_JOB_PRIORITIES } from '../index.js';
 
 /**
  * Custom Redis Queue Producer.
@@ -17,18 +17,19 @@ export const customQueueProducer = {
      * @param {string} params.type - Job type from EMAIL_JOB_TYPES
      * @param {string} params.to - Recipient email address
      * @param {Object} params.payload - Payload data (e.g., { otp: 123456, name: 'Alice' })
-     * @param {string} [params.priority='high'] - 'high' or 'low'
+     * @param {string} [params.priority] - 'high' or 'low' (optional, falls back to mapping)
      * @param {number} [params.ttlSeconds=300] - Job Time-To-Live in seconds (e.g., 5 min for OTPs)
      * @returns {Promise<{ success: boolean, jobId: string, priority: string }>}
      */
-    async addJob({ type, to, payload = {}, priority = EMAIL_PRIORITIES.HIGH, ttlSeconds = 300 }) {
+    async addJob({ type, to, payload = {}, priority, ttlSeconds = 300 }) {
         try {
             if (!to || typeof to !== 'string') {
                 throw new Error('Recipient email address is required.');
             }
 
             const jobId = crypto.randomUUID();
-            const normalizedPriority = priority === EMAIL_PRIORITIES.LOW ? EMAIL_PRIORITIES.LOW : EMAIL_PRIORITIES.HIGH;
+            const targetPriority = priority || DEFAULT_JOB_PRIORITIES?.[type] || EMAIL_PRIORITIES.HIGH;
+            const normalizedPriority = targetPriority === EMAIL_PRIORITIES.LOW ? EMAIL_PRIORITIES.LOW : EMAIL_PRIORITIES.HIGH;
 
             const job = {
                 id: jobId,

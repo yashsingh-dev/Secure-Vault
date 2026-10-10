@@ -100,7 +100,6 @@ const login = async (email, password) => {
                 type: EMAIL_JOB_TYPES.OTP,
                 to: currentUser.email,
                 payload: { otp, userId: userIdStr },
-                priority: EMAIL_PRIORITIES.HIGH,
                 ttlSeconds: otpTtlSeconds
             });
             if (!result.success) throw new Error(result.error);
@@ -173,7 +172,6 @@ const register = async (name, email, password) => {
             type: EMAIL_JOB_TYPES.OTP,
             to: new_user.email,
             payload: { otp, userId: new_user._id.toString() },
-            priority: EMAIL_PRIORITIES.HIGH,
             ttlSeconds: CONSTANTS.OTP.EXPIRY_MS / 1000
         });
         if (!result.success) throw new Error(result.error);
@@ -267,7 +265,6 @@ const googleAuth = async (code) => {
                     type: EMAIL_JOB_TYPES.OTP,
                     to: new_user.email,
                     payload: { otp, userId: new_user._id.toString() },
-                    priority: EMAIL_PRIORITIES.HIGH,
                     ttlSeconds: CONSTANTS.OTP.EXPIRY_MS / 1000
                 });
                 if (!result.success) throw new Error(result.error);
@@ -383,7 +380,6 @@ const googleAuth = async (code) => {
                 type: EMAIL_JOB_TYPES.OTP,
                 to: currentUser.email,
                 payload: { otp, userId: userIdStr },
-                priority: EMAIL_PRIORITIES.HIGH,
                 ttlSeconds: otpTtlSeconds
             });
             if (!result.success) throw new Error(result.error);
@@ -590,7 +586,6 @@ const sendOTP = async (email) => {
             type: EMAIL_JOB_TYPES.OTP,
             to: email,
             payload: { otp, userId: userIdStr },
-            priority: EMAIL_PRIORITIES.HIGH,
             ttlSeconds: otpTtl
         });
         if (!result.success) throw new Error(result.error);
