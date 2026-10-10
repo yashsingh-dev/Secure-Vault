@@ -8,8 +8,13 @@ import {
   HiOutlineComputerDesktop,
   HiOutlineExclamationTriangle,
   HiOutlineCheckBadge,
-  HiOutlineCodeBracket
+  HiOutlineCodeBracket,
+  HiOutlineBolt,
+  HiOutlineClock,
+  HiOutlineServerStack
 } from 'react-icons/hi2';
+import { SiGithub } from 'react-icons/si';
+import { TbRoute } from 'react-icons/tb';
 
 export default function HeroSection({ theme = 'dark', onOpenDocs }) {
   const [activeTab, setActiveTab] = useState('access');
@@ -62,33 +67,71 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
         </span>
       </h1>
 
-      {/* Subheadline */}
-      <p className={`relative z-10 text-center text-base sm:text-lg max-w-3xl mb-8 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-        Engineered for senior distributed systems benchmarks: cryptographic refresh token rotation (RTR),
-        atomic Redis Lua sliding-window rate limiters, 10s concurrency race grace periods, and zero-database-hit RAM verification.
-      </p>
+      {/* Subheadline & Quick-Scan Technical Highlights */}
+      <div className="relative z-10 text-center max-w-3xl mb-10">
+        <p className={`text-base sm:text-lg mb-5 font-normal leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          Distributed session security engineered for zero-trust architectures.
+        </p>
 
-      {/* Primary & Secondary Call to Actions */}
+        {/* 4 Instant-Scan Technical Highlight Badges */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <HiOutlineShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>RTR Token Rotation</span>
+            <span className="text-[10px] opacity-60 font-sans">(RFC 6819)</span>
+          </div>
+
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <HiOutlineBolt className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Atomic Lua</span>
+            <span className="text-[10px] opacity-60 font-sans">Rate Limiter</span>
+          </div>
+
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <HiOutlineClock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>10s Grace Period</span>
+            <span className="text-[10px] opacity-60 font-sans">Race Safe</span>
+          </div>
+
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <HiOutlineServerStack className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Zero-DB Hit</span>
+            <span className="text-[10px] opacity-60 font-sans">RAM Auth</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Primary & Secondary Call to Actions with Authentic Logos */}
       <div className="relative z-10 flex flex-wrap items-center justify-center gap-3.5 mb-14 w-full sm:w-auto">
         <button
           onClick={() => document.getElementById('architecture')?.scrollIntoView({ behavior: 'smooth' })}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-sm rounded-xl shadow-[0_0_25px_rgba(34,197,94,0.3)] transition-all duration-200 hover:-translate-y-0.5"
+          className="inline-flex items-center justify-center gap-2.5 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-sm rounded-xl shadow-[0_0_25px_rgba(34,197,94,0.3)] transition-all duration-200 hover:-translate-y-0.5 group"
         >
-          Explore Architecture Pipeline
-          <HiArrowDown className="w-4 h-4" />
+          <TbRoute className="w-4 h-4 text-emerald-100 group-hover:scale-110 transition-transform shrink-0" />
+          <span>Explore Architecture Pipeline</span>
+          <HiArrowDown className="w-3.5 h-3.5 opacity-70 group-hover:translate-y-0.5 transition-transform shrink-0" />
         </button>
 
         <a
           href="https://github.com/yashsingh-dev/Secure-Vault"
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center justify-center gap-2 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 ${isDark
+          className={`inline-flex items-center justify-center gap-2.5 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 group ${isDark
               ? 'border-white/10 hover:border-white/20 bg-[#12121a] text-slate-200 hover:text-white'
               : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-800'
             }`}
         >
-          View Source on GitHub
-          <HiOutlineArrowTopRightOnSquare className="w-4 h-4 opacity-70" />
+          <SiGithub className="w-4 h-4 text-current group-hover:scale-110 transition-transform shrink-0" />
+          <span>View Source on GitHub</span>
+          <HiOutlineArrowTopRightOnSquare className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0" />
         </a>
 
         {onOpenDocs && (
