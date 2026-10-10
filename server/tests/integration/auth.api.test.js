@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
-import * as recaptchaService from '../../src/services/v1/recaptcha.service.js';
+import * as recaptchaService from '../../src/services/recaptcha.service.js';
 import authService from '../../src/services/v1/auth.service.js';
 
 describe('Integration: Auth API Endpoints', () => {

@@ -1,8 +1,11 @@
 import { sendOTPEmail, sendLoginAlertEmail, sendWelcomeEmail } from '../../../utils/sendMail.utils.js';
-import { EMAIL_JOB_TYPES } from './customQueueProducer.js';
+import { EMAIL_JOB_TYPES } from './custom/producer.js';
 import { logger } from '../../../lib/logger.js';
 
 /**
+ * Common Email Job Dispatcher.
+ * Shared between Custom Redis Queue and BullMQ drivers.
+ * 
  * Dispatch an email job according to its type.
  * Returns { success: boolean, error?: string }
  */

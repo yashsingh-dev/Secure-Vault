@@ -1,5 +1,5 @@
-import redis from '../../db/redis.js';
-import { logger } from '../../lib/logger.js';
+import redis from '../db/redis.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * High-performance, atomic Redis Lua script implementing the Sliding Window Counter algorithm.

@@ -1,4 +1,4 @@
-import { checkSlidingWindowRateLimit } from '../services/v1/rateLimiter.service.js';
+import { checkSlidingWindowRateLimit } from '../services/rateLimiter.service.js';
 import response from '../utils/response.utils.js';
 import { logger } from '../lib/logger.js';
 import { msToSuffix, msToHumanDuration } from '../lib/time.js';

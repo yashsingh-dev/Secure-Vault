@@ -13,7 +13,7 @@ import { parseUserAgent } from "../../utils/device.utils.js";
 import mongoose from "mongoose";
 import { checkUserBlock } from "../../utils/authCore.utils.js";
 import { logger } from "../../lib/logger.js";
-import queueService, { EMAIL_JOB_TYPES, EMAIL_PRIORITIES } from "../queue/index.js";
+import emailNotificationService, { EMAIL_JOB_TYPES, EMAIL_PRIORITIES } from "../notification/email/index.js";
 
 const login = async (email, password) => {
     // 1. Find User in MongoDB (Source of Truth for sensitive password hash)
@@ -96,7 +96,7 @@ const login = async (email, password) => {
 
         // Send email; if sending fails, roll back both DB and Redis OTP Bucket
         try {
-            const result = await queueService.addEmailJob({
+            const result = await emailNotificationService.addEmailJob({
                 type: EMAIL_JOB_TYPES.OTP,
                 to: currentUser.email,
                 payload: { otp, userId: userIdStr },
@@ -169,7 +169,7 @@ const register = async (name, email, password) => {
 
     // Send Email
     try {
-        const result = await queueService.addEmailJob({
+        const result = await emailNotificationService.addEmailJob({
             type: EMAIL_JOB_TYPES.OTP,
             to: new_user.email,
             payload: { otp, userId: new_user._id.toString() },
@@ -263,7 +263,7 @@ const googleAuth = async (code) => {
         if (new_user) {
             // Send Email
             try {
-                const result = await queueService.addEmailJob({
+                const result = await emailNotificationService.addEmailJob({
                     type: EMAIL_JOB_TYPES.OTP,
                     to: new_user.email,
                     payload: { otp, userId: new_user._id.toString() },
@@ -379,7 +379,7 @@ const googleAuth = async (code) => {
 
         // Send email; if sending fails, roll back the OTP in DB and Redis
         try {
-            const result = await queueService.addEmailJob({
+            const result = await emailNotificationService.addEmailJob({
                 type: EMAIL_JOB_TYPES.OTP,
                 to: currentUser.email,
                 payload: { otp, userId: userIdStr },
@@ -586,7 +586,7 @@ const sendOTP = async (email) => {
 
     // 5. Send Email with dual-rollback on failure (MongoDB + Redis)
     try {
-        const result = await queueService.addEmailJob({
+        const result = await emailNotificationService.addEmailJob({
             type: EMAIL_JOB_TYPES.OTP,
             to: email,
             payload: { otp, userId: userIdStr },

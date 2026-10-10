@@ -1,5 +1,5 @@
-import ApiError from '../../utils/ApiError.js';
-import { logger } from '../../lib/logger.js';
+import ApiError from '../utils/ApiError.js';
+import { logger } from '../lib/logger.js';
 
 const GOOGLE_VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify';
 // Google reCAPTCHA v2 tokens expire after 2 minutes (120 seconds)

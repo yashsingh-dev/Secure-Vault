@@ -1,8 +1,8 @@
 import crypto from 'crypto';
-import redis from '../../../db/redis.js';
-import REDIS_KEYS from '../../../config/redisKeys.js';
-import { logger } from '../../../lib/logger.js';
-import { CONSTANTS } from '../../../config/constants.js';
+import redis from '../../../../db/redis.js';
+import REDIS_KEYS from '../../../../config/redisKeys.js';
+import { logger } from '../../../../lib/logger.js';
+import { CONSTANTS } from '../../../../config/constants.js';
 
 /**
  * Valid priority levels for email jobs.

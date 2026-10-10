@@ -1,5 +1,5 @@
 import ApiError from '../utils/ApiError.js';
-import { verifyRecaptchaToken } from '../services/v1/recaptcha.service.js';
+import { verifyRecaptchaToken } from '../services/recaptcha.service.js';
 import asyncHandler from '../utils/asyncHandler.utils.js';
 
 /**

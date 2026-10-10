@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { verifyRecaptcha } from '../../../src/middlewares/recaptcha.middleware.js';
-import * as recaptchaService from '../../../src/services/v1/recaptcha.service.js';
+import * as recaptchaService from '../../../src/services/recaptcha.service.js';
 
 describe('Unit: recaptcha.middleware', () => {
     beforeEach(() => {

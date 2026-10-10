@@ -1,13 +1,13 @@
-import { CONSTANTS } from '../../config/constants.js';
-import customQueueProducer, { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from './custom/customQueueProducer.js';
-import customQueueWorker from './custom/customWorker.js';
+import { CONSTANTS } from '../../../config/constants.js';
+import customQueueProducer, { EMAIL_PRIORITIES, EMAIL_JOB_TYPES } from './custom/producer.js';
+import customQueueWorker from './custom/worker.js';
 
 const driver = CONSTANTS.QUEUE?.DRIVER || 'custom';
 
 /**
- * Unified Queue Service Entry Point (Facade / Adapter)
+ * Unified Email Notification Queue Service Entry Point (Facade / Adapter)
  */
-const queueService = {
+const emailNotificationService = {
     /**
      * Enqueue an email job into the active queue driver.
      * 
@@ -20,6 +20,7 @@ const queueService = {
      */
     async addEmailJob(jobParams) {
         if (driver === 'custom') return await customQueueProducer.addJob(jobParams);
+        // BullMQ driver integration will plug in here
     },
 
     /**
@@ -27,6 +28,7 @@ const queueService = {
      */
     startWorker() {
         if (driver === 'custom') customQueueWorker.start();
+        // BullMQ driver worker will start here
     },
 
     /**
@@ -34,15 +36,16 @@ const queueService = {
      */
     stopWorker() {
         if (driver === 'custom') customQueueWorker.stop();
+        // BullMQ driver worker will stop here
     },
 
     /**
      * Get queue metrics / lengths
      */
     async getMetrics() {
-        if(driver === 'custom') return await customQueueProducer.getQueueLengths();
+        if (driver === 'custom') return await customQueueProducer.getQueueLengths();
     }
 };
 
 export { EMAIL_PRIORITIES, EMAIL_JOB_TYPES };
-export default queueService;
+export default emailNotificationService;

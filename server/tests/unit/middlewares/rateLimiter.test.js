@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import createRateLimiter from '../../../src/middlewares/rateLimiter.middleware.js';
-import * as rateLimiterService from '../../../src/services/v1/rateLimiter.service.js';
+import * as rateLimiterService from '../../../src/services/rateLimiter.service.js';
 import { CONSTANTS } from '../../../src/config/constants.js';
 
 describe('Unit: rateLimiter.middleware', () => {

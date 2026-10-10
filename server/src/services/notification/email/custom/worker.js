@@ -1,10 +1,39 @@
-import redis from '../../../db/redis.js';
-import REDIS_KEYS from '../../../config/redisKeys.js';
-import { CONSTANTS } from '../../../config/constants.js';
-import { logger } from '../../../lib/logger.js';
-import userModel from '../../../models/user.model.js';
-import { EMAIL_JOB_TYPES } from './customQueueProducer.js';
-import dispatchEmailJob from './jobDispatcher.js';
+import redis from '../../../../db/redis.js';
+import REDIS_KEYS from '../../../../config/redisKeys.js';
+import { CONSTANTS } from '../../../../config/constants.js';
+import { logger } from '../../../../lib/logger.js';
+import userModel from '../../../../models/user.model.js';
+import { EMAIL_JOB_TYPES } from './producer.js';
+import dispatchEmailJob from '../jobDispatcher.js';
+
+/**
+ * Atomic Token Reservation Lua Script
+ * 
+ * Atomically checks the current second bucket, grants available tokens up to
+ * the requested amount, increments the key by the granted amount, and sets TTL.
+ * 
+ * KEYS[1] -> Rate limit key for current second: "queue:email:ratelimit:<currentSecond>"
+ * ARGV[1] -> Rate limit ceiling: e.g. 10
+ * ARGV[2] -> Requested tokens: e.g. 10
+ * 
+ * Returns: Number of tokens successfully granted (0 if limit reached)
+ */
+const ACQUIRE_TOKENS_LUA = `
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+local maxLimit = tonumber(ARGV[1])
+local requested = tonumber(ARGV[2])
+
+local available = maxLimit - current
+if available <= 0 then
+    return 0
+end
+
+local granted = math.min(available, requested)
+redis.call('INCRBY', KEYS[1], granted)
+redis.call('EXPIRE', KEYS[1], 3)
+
+return granted
+`;
 
 class CustomQueueWorker {
     constructor() {
@@ -82,6 +111,8 @@ class CustomQueueWorker {
         let recovered = 0;
 
         while (true) {
+            // Push every job from processing back to high queue, regarding it as high priority
+            // This is safe because the job is already considered processed once
             const rawJob = await redis.rpoplpush(procKey, highKey);
             if (!rawJob) break;
             recovered++;
@@ -96,11 +127,11 @@ class CustomQueueWorker {
 
     /**
      * The 1-second Tick Execution:
-     * 1. Rate-limit check (Tokens left in this second).
-     * 2. Weighted quota calculation (8 High : 2 Low).
+     * 1. Atomic token reservation (via Lua script across all instances).
+     * 2. Weighted quota calculation (High vs. Low priority).
      * 3. Atomic pop to processing list.
      * 4. Parallel dispatch (Promise.allSettled).
-     * 5. Acknowledgment or retry handling.
+     * 5. Unused token refunding and acknowledgment handling.
      */
     async tick() {
         // Prevent overlapping batch execution if an async cycle exceeds 1000ms
@@ -112,27 +143,46 @@ class CustomQueueWorker {
             // Used by recoverStrandedJobs to prevent restarting instances from stealing in-flight jobs
             await redis.set(REDIS_KEYS.queue.workerHeartbeat(), 'alive', 'EX', 5);
 
-            const rateLimitMax = CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC ;
+            const rateLimitMax = CONSTANTS.QUEUE?.EMAIL_RATE_LIMIT_PER_SEC;
             const highWeight = CONSTANTS.QUEUE?.HIGH_PRIORITY_WEIGHT;
             const lowWeight = CONSTANTS.QUEUE?.LOW_PRIORITY_WEIGHT;
 
-            // 1. Check current second rate limit quota in Redis
+            // 1. Inspect queue lengths first to calculate exact tokens needed
+            const [highPending, lowPending] = await Promise.all([
+                redis.llen(REDIS_KEYS.queue.high()),
+                redis.llen(REDIS_KEYS.queue.low())
+            ]);
+
+            const totalJobsWaiting = highPending + lowPending;
+            if (totalJobsWaiting === 0) {
+                return; // Nothing in queue; avoid claiming tokens unnecessarily
+            }
+
+            // Request only what we can actually process in this tick (capped at rateLimitMax)
+            const tokensNeeded = Math.min(totalJobsWaiting, rateLimitMax);
+
+            // 2. Atomically claim ONLY the required tokens for this second via Redis Lua script
             const currentSecond = Math.floor(Date.now() / 1000);
             const rateLimitKey = REDIS_KEYS.queue.rateLimit(currentSecond);
-            const currentCount = parseInt(await redis.get(rateLimitKey) || '0', 10);
 
-            const availableTokens = Math.max(0, rateLimitMax - currentCount);
-            if (availableTokens <= 0) {
-                // Rate limit reached for this second; wait for next tick
+            const grantedTokens = await redis.eval(
+                ACQUIRE_TOKENS_LUA,
+                1,
+                rateLimitKey,
+                rateLimitMax,
+                tokensNeeded // Request only what we need so other instances can share remaining tokens!
+            );
+
+            // If 0 tokens granted, other server instances have already filled this second's quota
+            if (!grantedTokens || grantedTokens <= 0) {
                 return;
             }
 
-            // 2. Determine weighted pull quotas for this batch
-            // High priority gets up to highWeight; Low gets up to lowWeight
-            const targetHighCount = Math.min(availableTokens, highWeight);
-            const targetLowCount = Math.min(availableTokens - targetHighCount, lowWeight);
+            // 3. Determine weighted pull quotas based on exclusively granted tokens
+            const targetHighCount = Math.min(grantedTokens, highWeight);
+            const targetLowCount = Math.min(grantedTokens - targetHighCount, lowWeight);
 
-            // 3. Dequeue jobs atomically from Redis lists using RPOPLPUSH
+            // 4. Dequeue jobs atomically from Redis lists using RPOPLPUSH
             const jobsToProcess = [];
 
             // A. Pull High Priority jobs
@@ -142,8 +192,8 @@ class CustomQueueWorker {
                 jobsToProcess.push({ job: JSON.parse(rawJob), rawString: rawJob });
             }
 
-            // If high queue didn't consume all tokens, allow low queue to borrow the remainder tokens
-            const remainingTokensForLow = availableTokens - jobsToProcess.length;
+            // If high queue didn't consume all slots, allow low queue to borrow remainder
+            const remainingTokensForLow = grantedTokens - jobsToProcess.length;
             const actualLowQuota = Math.min(remainingTokensForLow, targetLowCount + (targetHighCount - jobsToProcess.length));
 
             // B. Pull Low Priority jobs
@@ -153,17 +203,17 @@ class CustomQueueWorker {
                 jobsToProcess.push({ job: JSON.parse(rawJob), rawString: rawJob });
             }
 
+            // 5. Refund any unused tokens back to Redis so other servers can use them in this second
+            const unusedTokens = grantedTokens - jobsToProcess.length;
+            if (unusedTokens > 0) {
+                await redis.decrby(rateLimitKey, unusedTokens);
+            }
+
             if (jobsToProcess.length === 0) {
                 return; // Nothing to process in this second
             }
 
-            // Increment atomic rate-limit counter in Redis for this second
-            const pipeline = redis.pipeline();
-            pipeline.incrby(rateLimitKey, jobsToProcess.length);
-            pipeline.expire(rateLimitKey, 3); // 3 seconds expiry is enough for 1s window
-            await pipeline.exec();
-
-            // 4. Process all pulled jobs in parallel non-blocking I/O
+            // 6. Process all pulled jobs in parallel non-blocking I/O
             await Promise.allSettled(
                 jobsToProcess.map(({ job, rawString }) => this.handleJob(job, rawString))
             );
@@ -258,8 +308,6 @@ class CustomQueueWorker {
                 'Email job failed; re-enqueued for retry'
             );
         }
-
-        
     }
 }
 
