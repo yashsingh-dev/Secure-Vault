@@ -31,7 +31,7 @@ export const CONSTANTS = {
         ENABLED: true
     },
     QUEUE: {
-        DRIVER: 'custom', // custom or bullmq
+        DRIVER: 'bullmq', // custom or bullmq
         EMAIL_RATE_LIMIT_PER_SEC: 7,
         HIGH_PRIORITY_WEIGHT: 5,
         LOW_PRIORITY_WEIGHT: 2,

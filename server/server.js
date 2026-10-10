@@ -16,9 +16,9 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown handling
-const shutdown = () => {
+const shutdown = async () => {
     logger.info('Shutting down server and queue workers...');
-    emailNotificationService.stopWorker();
+    await emailNotificationService.stopWorker();
     server.close(() => {
         process.exit(0);
     });

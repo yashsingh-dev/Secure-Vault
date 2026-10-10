@@ -1,6 +1,8 @@
 import { CONSTANTS } from '../../../config/constants.js';
 import customQueueProducer from './custom/producer.js';
 import customQueueWorker from './custom/worker.js';
+import bullmqProducer from './bullmq/producer.js';
+import bullmqWorker from './bullmq/worker.js';
 
 /**
  * Valid priority levels for email jobs.
@@ -58,7 +60,7 @@ const emailNotificationService = {
         };
 
         if (driver === 'custom') return await customQueueProducer.addJob(normalizedParams);
-        // BullMQ driver integration will plug in here
+        if (driver === 'bullmq') return await bullmqProducer.addJob(normalizedParams);
     },
 
     /**
@@ -66,15 +68,15 @@ const emailNotificationService = {
      */
     startWorker() {
         if (driver === 'custom') customQueueWorker.start();
-        // BullMQ driver worker will start here
+        if (driver === 'bullmq') bullmqWorker.start();
     },
 
     /**
      * Stop the background queue consumer worker cleanly.
      */
-    stopWorker() {
+    async stopWorker() {
         if (driver === 'custom') customQueueWorker.stop();
-        // BullMQ driver worker will stop here
+        if (driver === 'bullmq') await bullmqWorker.stop();
     },
 
     /**
@@ -82,6 +84,7 @@ const emailNotificationService = {
      */
     async getMetrics() {
         if (driver === 'custom') return await customQueueProducer.getQueueLengths();
+        if (driver === 'bullmq') return await bullmqProducer.getQueueLengths();
     }
 };
 
