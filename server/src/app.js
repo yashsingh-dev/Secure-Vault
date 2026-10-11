@@ -1,5 +1,4 @@
 import express from 'express';
-import 'dotenv/config';
 import './config/validateSetup.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';

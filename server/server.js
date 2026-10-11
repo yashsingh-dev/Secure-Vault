@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import './src/config/validateSetup.js';
 import http from 'http';
 import app from './src/app.js';

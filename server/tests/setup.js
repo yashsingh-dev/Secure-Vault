@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 // Enforce test environment
 process.env.NODE_ENV = 'test';
 process.env.JWT_ACCESS_KEY = process.env.JWT_ACCESS_KEY || 'test-jwt-access-key-minimum-32-chars';

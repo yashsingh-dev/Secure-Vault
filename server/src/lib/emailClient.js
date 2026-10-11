@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 /**
  * Generic email delivery client.
  * Dispatches transactional emails via HTTPS API without vendor-specific SDK dependencies.
