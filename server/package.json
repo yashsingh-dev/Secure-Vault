@@ -4,11 +4,12 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "node --env-file=.env server.js",
-    "start:prod": "node server.js",
-    "dev": "nodemon --env-file=.env server.js",
-    "test": "node --env-file=.env ./node_modules/vitest/vitest.mjs run",
-    "test:watch": "node --env-file=.env ./node_modules/vitest/vitest.mjs"
+    "dev": "nodemon --env-file=.env.development server.js",
+    "start:dev": "node --env-file=.env.development server.js",
+    "start:prod:local": "node --env-file=.env.production server.js",
+    "start": "node server.js",
+    "test": "node --env-file=.env.development ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file=.env.development ./node_modules/vitest/vitest.mjs"
   },
   "keywords": [],
   "author": "Yash Singh",
