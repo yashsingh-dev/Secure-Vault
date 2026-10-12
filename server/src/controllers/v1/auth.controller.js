@@ -60,6 +60,7 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const googleAuth = asyncHandler(async (req, res) => {
+    const { code } = req.body;
     const clientMeta = parseClientMeta(req);
     const { user, is2FAEnabled, rememberMe = false } = await authService.googleAuth(code, clientMeta);
 
@@ -189,7 +190,7 @@ const logout = asyncHandler(async (req, res) => {
 const logoutAll = asyncHandler(async (req, res) => {
     const accessToken = getAccessToken(req);
     const refreshToken = getRefreshToken(req);
-    
+
     const userId = req.user;
     const currentTokenVersion = req.tokenVersion;
 
