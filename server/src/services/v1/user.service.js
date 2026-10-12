@@ -54,7 +54,7 @@ const updateProfile = async (userId, updateData) => {
     const updatedUser = await userModel.findByIdAndUpdate(
         userId,
         { $set: updateFields },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     ).select('name email isVerified googleLogin settings lastLogin createdAt').lean();
 
     if (!updatedUser) {
