@@ -6,9 +6,7 @@ import {
   HiOutlineCodeBracket
 } from 'react-icons/hi2';
 
-export default function Footer({ theme = 'dark', onOpenDocs }) {
-  const isDark = theme === 'dark';
-
+export default function Footer({ onOpenDocs }) {
   const techStack = [
     'React 19',
     'Tailwind CSS v4',
@@ -42,11 +40,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
   };
 
   return (
-    <footer className={`w-full py-16 px-4 sm:px-6 lg:px-8 border-t transition-colors duration-300 ${
-      isDark
-        ? 'bg-[#08080d] border-white/5 text-slate-200'
-        : 'bg-white border-slate-200 text-slate-800'
-    }`}>
+    <footer className="w-full py-16 px-4 sm:px-6 lg:px-8 border-t bg-[#08080d] border-white/5 text-slate-200">
       <div className="max-w-7xl mx-auto flex flex-col gap-12">
         {/* Top Section */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
@@ -61,7 +55,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
                 Production System
               </span>
             </div>
-            <p className={`text-xs leading-relaxed max-w-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className="text-xs leading-relaxed max-w-sm text-slate-400">
               High-performance enterprise session security and distributed authentication platform.
               Engineered to resolve RFC 6819 threat models, frontend concurrency race conditions, and high-throughput cache bottlenecks.
             </p>
@@ -69,7 +63,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
 
           {/* Quick Navigation Links */}
           <div className="md:col-span-3 flex flex-col gap-2">
-            <h4 className={`text-xs font-mono font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+            <h4 className="text-xs font-mono font-semibold uppercase tracking-wider mb-1 text-slate-400">
               System Architecture
             </h4>
             <a
@@ -104,7 +98,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
 
           {/* Developer Resources & Links */}
           <div className="md:col-span-4 flex flex-col gap-2">
-            <h4 className={`text-xs font-mono font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+            <h4 className="text-xs font-mono font-semibold uppercase tracking-wider mb-1 text-slate-400">
               Resources & Repos
             </h4>
             <a
@@ -131,11 +125,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
               {archBadges.map((badge) => (
                 <span
                   key={badge}
-                  className={`font-mono text-[9px] px-2 py-0.5 rounded border ${
-                    isDark
-                      ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400'
-                      : 'border-emerald-500/30 bg-emerald-50 text-emerald-700'
-                  }`}
+                  className="font-mono text-[9px] px-2 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
                 >
                   {badge}
                 </span>
@@ -145,10 +135,10 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
         </div>
 
         {/* Tech Stack Horizontal Pills */}
-        <div className="flex flex-col gap-3 pt-6 border-t border-black/5 dark:border-white/5">
+        <div className="flex flex-col gap-3 pt-6 border-t border-white/5">
           <div className="flex items-center gap-2">
             <HiOutlineCodeBracket className="w-4 h-4 text-emerald-500" />
-            <h4 className={`text-xs font-mono font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+            <h4 className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
               Core Technology Stack
             </h4>
           </div>
@@ -156,11 +146,7 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
             {techStack.map((tech) => (
               <span
                 key={tech}
-                className={`font-mono text-[10px] px-2.5 py-1 rounded-lg border transition-colors ${
-                  isDark
-                    ? 'bg-[#12121a] border-white/5 text-slate-300'
-                    : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                className="font-mono text-[10px] px-2.5 py-1 rounded-lg border bg-[#12121a] border-white/5 text-slate-300"
               >
                 {tech}
               </span>
@@ -169,10 +155,10 @@ export default function Footer({ theme = 'dark', onOpenDocs }) {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-6 border-t border-black/5 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
+        <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
           <div>
             Crafted for Staff/Senior Engineering benchmarks by{' '}
-            <strong className={isDark ? 'text-slate-300' : 'text-slate-700'}>Yash Singh</strong>
+            <strong className="text-slate-300">Yash Singh</strong>
           </div>
           <div className="flex items-center gap-4">
             <span>RFC 6819 Compliant</span>

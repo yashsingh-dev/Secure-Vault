@@ -17,8 +17,7 @@ import {
 } from 'react-icons/hi2';
 import QueueAnimationSimulator from './QueueAnimationSimulator';
 
-export default function NotificationPipeline({ theme = 'dark' }) {
-  const isDark = theme === 'dark';
+export default function NotificationPipeline() {
   const [activeDriver, setActiveDriver] = useState('custom'); // 'custom' | 'bullmq'
   const [selectedEvent, setSelectedEvent] = useState('otp'); // 'otp' | 'reset' | 'login' | 'welcome'
 
@@ -232,7 +231,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
   const currentSpecs = activeDriver === 'custom' ? CUSTOM_QUEUE_SPECS : BULLMQ_SPECS;
 
   return (
-    <section id="notification-pipeline" className={`w-full max-w-7xl 2xl:max-w-[94rem] mx-auto font-sans transition-colors duration-300 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+    <section id="notification-pipeline" className="w-full max-w-7xl 2xl:max-w-[94rem] mx-auto font-sans text-slate-100">
       {/* Section Header */}
       <div className="mb-14 text-center max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1 text-xs font-mono uppercase tracking-wider border mb-4 border-cyan-500/20 bg-cyan-500/5 text-cyan-400">
@@ -242,7 +241,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4">
           Dual-Driver Notification Pipeline
         </h2>
-        <p className={`text-base sm:text-lg font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        <p className="text-base sm:text-lg font-mono text-slate-400">
           Decoupled asynchronous notification delivery powered by an in-house Redis queue and enterprise BullMQ worker.
         </p>
 
@@ -299,19 +298,15 @@ export default function NotificationPipeline({ theme = 'dark' }) {
                   onClick={() => setSelectedEvent(event.id)}
                   className={`text-left p-4 rounded-xl border transition-all duration-200 relative group cursor-pointer ${
                     isSelected
-                      ? isDark
-                        ? 'bg-[#151522] border-emerald-500 ring-1 ring-emerald-500 shadow-[0_0_20px_rgba(34,197,94,0.15)]'
-                        : 'bg-white border-emerald-500 ring-1 ring-emerald-500 shadow-md'
-                      : isDark
-                        ? 'bg-[#101018] border-white/5 hover:border-white/15 text-slate-300'
-                        : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 shadow-sm'
+                      ? 'bg-[#151522] border-emerald-500 ring-1 ring-emerald-500 shadow-[0_0_20px_rgba(34,197,94,0.15)]'
+                      : 'bg-[#101018] border-white/5 hover:border-white/15 text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className={`p-2 rounded-lg ${
                       isSelected
                         ? 'bg-emerald-500/20 text-emerald-400'
-                        : isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'
+                        : 'bg-white/5 text-slate-400'
                     }`}>
                       <Icon className="w-4 h-4" />
                     </div>
@@ -324,7 +319,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
                     </span>
                   </div>
 
-                  <h3 className={`text-sm font-semibold mb-1 ${isSelected ? (isDark ? 'text-white' : 'text-slate-900') : ''}`}>
+                  <h3 className={`text-sm font-semibold mb-1 ${isSelected ? 'text-white' : ''}`}>
                     {event.title}
                   </h3>
                   <div className="font-mono text-[11px] text-slate-500 mb-2">
@@ -340,9 +335,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
         </div>
 
         {/* 2. Interactive Job Traversal Flow (Dynamically updates with driver!) */}
-        <div className={`p-6 rounded-2xl border transition-all duration-300 ${
-          isDark ? 'bg-[#11111a] border-white/10' : 'bg-white border-slate-200 shadow-md'
-        }`}>
+        <div className="p-6 rounded-2xl border transition-all duration-300 bg-[#11111a] border-white/10">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-white/5">
             <div className="flex items-center gap-2">
               <HiOutlineArrowRight className={`w-4 h-4 ${activeDriver === 'custom' ? 'text-emerald-400' : 'text-cyan-400'}`} />
@@ -365,9 +358,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
             {currentSteps.map((s, idx) => (
               <div
                 key={idx}
-                className={`p-3.5 rounded-xl border transition-all duration-200 ${
-                  isDark ? 'bg-black/30 border-white/5' : 'bg-slate-50 border-slate-200'
-                }`}
+                className="p-3.5 rounded-xl border transition-all duration-200 bg-black/30 border-white/5"
               >
                 <span className="text-[10px] text-slate-500 uppercase block mb-1">
                   Step {s.step}
@@ -388,9 +379,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
           </div>
 
           {/* Active Driver Command Preview */}
-          <div className={`mt-5 p-3.5 rounded-xl border font-mono text-[11px] flex flex-wrap items-center justify-between gap-2 ${
-            isDark ? 'bg-black/50 border-white/5' : 'bg-slate-100 border-slate-200'
-          }`}>
+          <div className="mt-5 p-3.5 rounded-xl border font-mono text-[11px] flex flex-wrap items-center justify-between gap-2 bg-black/50 border-white/5">
             <div className="flex items-center gap-2 text-slate-400">
               <span className="text-amber-400 font-bold">// Engine Syntax:</span>
               {activeDriver === 'custom' ? (
@@ -408,7 +397,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
         </div>
 
         {/* 2.5 Live Multi-Queue Dispatch Simulator (Tri-Queue Architecture & Quota Math) */}
-        <QueueAnimationSimulator theme={theme} />
+        <QueueAnimationSimulator />
 
         {/* 3. Deep-Dive: Architecture Showcase (Dynamically transforms with driver!) */}
         <div>
@@ -437,9 +426,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
               return (
                 <div
                   key={idx}
-                  className={`p-5 rounded-2xl border flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 ${
-                    isDark ? 'bg-[#12121c] border-white/10 hover:border-white/20' : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
-                  }`}
+                  className="p-5 rounded-2xl border flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 bg-[#12121c] border-white/10 hover:border-white/20"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -457,7 +444,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
                       {spec.title}
                     </h4>
 
-                    <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <p className="text-xs leading-relaxed text-slate-400">
                       {spec.detail}
                     </p>
                   </div>
@@ -468,11 +455,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
         </div>
 
         {/* 4. Architectural Comparison: In-House vs BullMQ */}
-        <div className={`p-6 rounded-2xl border transition-all ${
-          isDark 
-            ? 'bg-gradient-to-r from-[#12121e] to-[#0e1017] border-white/10' 
-            : 'bg-slate-50 border-slate-200 shadow-sm'
-        }`}>
+        <div className="p-6 rounded-2xl border transition-all bg-gradient-to-r from-[#12121e] to-[#0e1017] border-white/10">
           <div className="flex items-center gap-2 mb-4">
             <HiOutlineCheckCircle className="w-5 h-5 text-emerald-400" />
             <span className="font-semibold text-sm">
@@ -483,8 +466,8 @@ export default function NotificationPipeline({ theme = 'dark' }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
             <div className={`p-4 rounded-xl border transition-all ${
               activeDriver === 'custom'
-                ? isDark ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'bg-emerald-50 border-emerald-400'
-                : isDark ? 'bg-black/20 border-white/5' : 'bg-white border-slate-200'
+                ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
+                : 'bg-black/20 border-white/5'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <strong className="text-emerald-400 font-mono text-sm">Driver A: In-House Custom Queue</strong>
@@ -492,15 +475,15 @@ export default function NotificationPipeline({ theme = 'dark' }) {
                   Custom Lua + LPUSH
                 </span>
               </div>
-              <p className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+              <p className="text-slate-400">
                 Engineered with pure Redis primitive lists and atomic Lua scripting. Gives 100% control over token refunding, stranded in-flight job recovery, and custom database state rollback on DLQ exhaustion with zero package bloat.
               </p>
             </div>
 
             <div className={`p-4 rounded-xl border transition-all ${
               activeDriver === 'bullmq'
-                ? isDark ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-cyan-50 border-cyan-400'
-                : isDark ? 'bg-black/20 border-white/5' : 'bg-white border-slate-200'
+                ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.1)]'
+                : 'bg-black/20 border-white/5'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <strong className="text-cyan-400 font-mono text-sm">Driver B: BullMQ Enterprise Worker</strong>
@@ -508,7 +491,7 @@ export default function NotificationPipeline({ theme = 'dark' }) {
                   Redis Streams
                 </span>
               </div>
-              <p className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+              <p className="text-slate-400">
                 Industrial-grade background job engine leveraging Redis Streams. Provides native numerical job priorities, delayed scheduling, distributed locks, and automated event telemetry across horizontal worker clusters.
               </p>
             </div>

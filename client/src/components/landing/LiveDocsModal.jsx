@@ -12,11 +12,9 @@ import {
   HiOutlineExclamationTriangle
 } from 'react-icons/hi2';
 
-export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
+export default function LiveDocsModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('rfc6819');
   const [copiedKey, setCopiedKey] = useState(null);
-
-  const isDark = theme === 'dark';
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -135,19 +133,9 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
       />
 
       {/* Modal Dialog */}
-      <div
-        className={`relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden transition-all duration-200 z-10 ${
-          isDark
-            ? 'bg-[#0e0e15] border-white/10 text-white'
-            : 'bg-white border-black/10 text-slate-900'
-        }`}
-      >
+      <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden transition-all duration-200 z-10 bg-[#0e0e15] border-white/10 text-white">
         {/* Header */}
-        <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${
-            isDark ? 'border-white/10 bg-[#12121c]' : 'border-black/5 bg-slate-50'
-          }`}
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12121c]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
               <HiOutlineShieldCheck className="w-6 h-6" />
@@ -161,27 +149,21 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                   RFC 6819
                 </span>
               </div>
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+              <p className="text-xs text-gray-400">
                 Production Distributed Session Security System Specifications
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg transition-colors ${
-              isDark ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-black/5 text-slate-500'
-            }`}
+            className="p-2 rounded-lg transition-colors hover:bg-white/10 text-gray-400 hover:text-white"
           >
             <HiXMark className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Controls */}
-        <div
-          className={`flex border-b px-6 gap-6 overflow-x-auto ${
-            isDark ? 'border-white/10 bg-[#0a0a0f]' : 'border-black/5 bg-slate-100/50'
-          }`}
-        >
+        <div className="flex border-b px-6 gap-6 overflow-x-auto border-white/10 bg-[#0a0a0f]">
           {[
             { id: 'rfc6819', label: 'Threat Matrix (RFC 6819)' },
             { id: 'redis', label: 'Redis Key Hierarchy' },
@@ -207,7 +189,7 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
           {activeTab === 'rfc6819' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                <p className="text-xs text-gray-400">
                   Formal threat mitigation analysis based on RFC 6819 (OAuth 2.0 Threat Model and Security Considerations).
                 </p>
                 <span className="text-[11px] font-mono text-emerald-500">6/6 Vectors Mitigated</span>
@@ -217,11 +199,7 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                 {threatMatrix.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`p-4 rounded-xl border transition-all ${
-                      isDark
-                        ? 'bg-[#14141e] border-white/5 hover:border-emerald-500/20'
-                        : 'bg-slate-50 border-black/5 hover:border-emerald-500/30'
-                    }`}
+                    className="p-4 rounded-xl border transition-all bg-[#14141e] border-white/5 hover:border-emerald-500/20"
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
@@ -232,11 +210,11 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                         {item.status}
                       </span>
                     </div>
-                    <p className={`text-xs mb-2 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                      <strong className={isDark ? 'text-gray-300' : 'text-slate-700'}>Attack Vector: </strong>
+                    <p className="text-xs mb-2 text-gray-400">
+                      <strong className="text-gray-300">Attack Vector: </strong>
                       {item.vector}
                     </p>
-                    <p className={`text-xs leading-relaxed ${isDark ? 'text-emerald-400/90' : 'text-emerald-700'}`}>
+                    <p className="text-xs leading-relaxed text-emerald-400/90">
                       <strong>Defense Engine: </strong>
                       {item.mitigation}
                     </p>
@@ -248,14 +226,14 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
 
           {activeTab === 'redis' && (
             <div className="space-y-4">
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+              <p className="text-xs text-gray-400">
                 Strict centralized key namespaces managed through <code className="font-mono text-emerald-500">REDIS_KEYS</code> helper.
                 Guarantees zero database hits on verified and blacklisted requests.
               </p>
 
               <div className="overflow-x-auto rounded-xl border border-white/5">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className={isDark ? 'bg-white/5 text-gray-400' : 'bg-slate-100 text-slate-600'}>
+                  <thead className="bg-white/5 text-gray-400">
                     <tr>
                       <th className="p-3">Redis Key Pattern</th>
                       <th className="p-3">Purpose & Responsibility</th>
@@ -263,11 +241,11 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                       <th className="p-3">Data Structure</th>
                     </tr>
                   </thead>
-                  <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-black/5'}`}>
+                  <tbody className="divide-y divide-white/5">
                     {redisNamespaces.map((ns, idx) => (
-                      <tr key={idx} className={isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}>
+                      <tr key={idx} className="hover:bg-white/[0.02]">
                         <td className="p-3 text-emerald-400 font-semibold">{ns.prefix}</td>
-                        <td className={`p-3 font-sans ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>{ns.purpose}</td>
+                        <td className="p-3 font-sans text-gray-300">{ns.purpose}</td>
                         <td className="p-3 text-amber-400">{ns.ttl}</td>
                         <td className="p-3 text-cyan-400">{ns.storage}</td>
                       </tr>
@@ -280,11 +258,11 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
 
           {activeTab === 'contract' && (
             <div className="space-y-4">
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+              <p className="text-xs text-gray-400">
                 Every API response adheres to standard IETF and OWASP security headers.
               </p>
 
-              <div className={`p-4 rounded-xl border font-mono text-xs space-y-2 ${isDark ? 'bg-[#14141e] border-white/5' : 'bg-slate-50 border-black/5'}`}>
+              <div className="p-4 rounded-xl border font-mono text-xs space-y-2 bg-[#14141e] border-white/5">
                 <div className="text-gray-500">// Response Headers emitted by Secure Vault Middleware</div>
                 <div><span className="text-emerald-400">RateLimit-Limit:</span> 5</div>
                 <div><span className="text-emerald-400">RateLimit-Remaining:</span> 4</div>
@@ -304,13 +282,7 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
           {activeTab === 'quickstart' && (
             <div className="space-y-4">
               {/* Important Notice: reCAPTCHA Requirement */}
-              <div
-                className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
-                  isDark
-                    ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
-                    : 'bg-amber-50 border-amber-200 text-amber-900'
-                }`}
-              >
+              <div className="p-3.5 rounded-xl border text-xs leading-relaxed bg-amber-500/10 border-amber-500/25 text-amber-200">
                 <div className="flex items-center gap-2 font-semibold mb-1 text-amber-400">
                   <HiOutlineExclamationTriangle className="w-4 h-4 shrink-0" />
                   <span>Important Note: Google reCAPTCHA Verification Enforced</span>
@@ -323,7 +295,7 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                 </div>
               </div>
 
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+              <p className="text-xs text-gray-400">
                 Test the API trace using curl from your terminal:
               </p>
 
@@ -340,14 +312,14 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
                   {copiedKey === 'curl' ? <HiOutlineCheck className="w-3.5 h-3.5 text-emerald-400" /> : <HiOutlineClipboardDocument className="w-3.5 h-3.5" />}
                   {copiedKey === 'curl' ? 'Copied' : 'Copy'}
                 </button>
-                <pre className={`p-4 rounded-xl border font-mono text-xs overflow-x-auto ${isDark ? 'bg-[#14141e] border-white/5 text-gray-300' : 'bg-slate-50 border-black/5 text-slate-800'}`}>
+                <pre className="p-4 rounded-xl border font-mono text-xs overflow-x-auto bg-[#14141e] border-white/5 text-gray-300">
                   <code>{`curl -i -X POST http://localhost:5000/api/v1/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{"email":"test@example.com","password":"Password123!"}'`}</code>
                 </pre>
               </div>
 
-              <div className={`p-4 rounded-xl border font-mono text-xs space-y-1.5 ${isDark ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-500/30 text-emerald-800'}`}>
+              <div className="p-4 rounded-xl border font-mono text-xs space-y-1.5 bg-emerald-500/5 border-emerald-500/20 text-emerald-300">
                 <div className="font-semibold font-sans text-sm mb-1">Standard Execution Telemetry:</div>
                 <div>➔ [0.12ms] Zod contract validation passed</div>
                 <div>➔ [0.45ms] Redis sliding window counter evaluated via Lua: 1/5</div>
@@ -360,11 +332,7 @@ export default function LiveDocsModal({ isOpen, onClose, theme = 'dark' }) {
         </div>
 
         {/* Footer */}
-        <div
-          className={`flex items-center justify-between px-6 py-3 border-t text-xs ${
-            isDark ? 'border-white/10 bg-[#12121c] text-gray-400' : 'border-black/5 bg-slate-50 text-slate-500'
-          }`}
-        >
+        <div className="flex items-center justify-between px-6 py-3 border-t text-xs border-white/10 bg-[#12121c] text-gray-400">
           <span>Open Source RFC 6819 Architecture</span>
           <a
             href="https://github.com/yashsingh-dev/Secure-Vault"

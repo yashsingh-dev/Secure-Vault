@@ -13,9 +13,7 @@ import {
   HiOutlineInformationCircle
 } from 'react-icons/hi2';
 
-export default function QueueAnimationSimulator({ theme = 'dark' }) {
-  const isDark = theme === 'dark';
-
+export default function QueueAnimationSimulator() {
   // 1. Fixed Compulsory System Rules (From server/src/config/constfants.js)
   const SYSTEM_CONFIG = {
     EMAIL_RATE_LIMIT_PER_SEC: 7,
@@ -533,13 +531,9 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
   }, [isRunning, recordEvent]);
 
   return (
-    <div className={`w-full rounded-2xl border transition-all duration-300 font-sans ${
-      isDark ? 'bg-[#0d0d16] border-white/10 shadow-2xl' : 'bg-slate-50 border-slate-200 shadow-xl'
-    }`}>
+    <div className="w-full rounded-2xl border transition-all duration-300 font-sans bg-[#0d0d16] border-white/10 shadow-2xl">
       {/* 1. Header Bar: Engine Status & Second Clock */}
-      <div className={`p-5 border-b flex flex-wrap items-center justify-between gap-4 ${
-        isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white'
-      }`}>
+      <div className="p-5 border-b flex flex-wrap items-center justify-between gap-4 border-white/5 bg-black/30">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <HiOutlineQueueList className="w-5 h-5 animate-pulse" />
@@ -603,9 +597,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
       </div>
 
       {/* 2. Interactive Inputs & Core Rules Bar */}
-      <div className={`p-5 border-b space-y-4 ${
-        isDark ? 'border-white/5 bg-black/20' : 'border-slate-200 bg-slate-100/70'
-      }`}>
+      <div className="p-5 border-b space-y-4 border-white/5 bg-black/20">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
           
           {/* User Inputs (High & Low Job Counts) */}
@@ -730,9 +722,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
         </div>
 
         {/* 4. Core Rate Limiter & Dispatch Rules (Plain English) */}
-        <div className={`p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs ${
-          isDark ? 'bg-black/40 border-white/5 text-slate-400' : 'bg-white border-slate-200 text-slate-600 shadow-sm'
-        }`}>
+        <div className="p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs bg-black/40 border-white/5 text-slate-400">
           <div className="flex items-center gap-2">
             <HiOutlineInformationCircle className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="font-bold text-slate-200 font-sans">Core Rate Limiter &amp; Dispatch Rules:</span>
@@ -767,7 +757,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
             <div className={`p-3.5 rounded-xl border relative transition-all duration-300 flex-1 flex flex-col justify-between ${
               status === 'ACQUIRING_TOKENS' && assignedTokensHigh > 0
                 ? 'border-emerald-500 ring-1 ring-emerald-500/40 bg-emerald-500/5'
-                : isDark ? 'bg-black/30 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                : 'bg-black/30 border-white/10'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -833,7 +823,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
             <div className={`p-3.5 rounded-xl border relative transition-all duration-300 flex-1 flex flex-col justify-between ${
               status === 'ACQUIRING_TOKENS' && assignedTokensLow > 0
                 ? 'border-cyan-500 ring-1 ring-cyan-500/40 bg-cyan-500/5'
-                : isDark ? 'bg-black/30 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                : 'bg-black/30 border-white/10'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -908,9 +898,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
           </div>
 
           {/* COLUMN 2: Center Redis Token Bucket & Lua Evaluator */}
-          <div className={`lg:col-span-4 p-4 rounded-xl border relative font-mono text-xs flex flex-col justify-between ${
-            isDark ? 'bg-[#12121e] border-white/10' : 'bg-white border-slate-200 shadow-sm'
-          }`}>
+          <div className="lg:col-span-4 p-4 rounded-xl border relative font-mono text-xs flex flex-col justify-between bg-[#12121e] border-white/10">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/5">
                 <div className="flex items-center gap-2">
@@ -996,7 +984,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
             <div className={`p-3.5 rounded-xl border relative transition-all duration-300 flex-1 flex flex-col justify-between ${
               processingQueue.length > 0
                 ? 'border-amber-500 ring-1 ring-amber-500/40 bg-amber-500/5 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
-                : isDark ? 'bg-black/30 border-white/10' : 'bg-white border-slate-200'
+                : 'bg-black/30 border-white/10'
             }`}>
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1092,7 +1080,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
             <div className={`p-3.5 rounded-xl border relative transition-all duration-300 flex-1 flex flex-col justify-between ${
               dlqQueue.length > 0
                 ? 'border-rose-500/60 ring-1 ring-rose-500/30 bg-rose-500/5 shadow-[0_0_20px_rgba(244,63,94,0.15)]'
-                : isDark ? 'bg-black/30 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                : 'bg-black/30 border-white/10'
             }`}>
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1187,9 +1175,7 @@ export default function QueueAnimationSimulator({ theme = 'dark' }) {
         </div>
 
         {/* FULL-WIDTH ROW: Second-by-Second Execution Timeline (Terminal Logs) */}
-        <div className={`p-3.5 sm:p-4 rounded-xl border font-mono text-xs ${
-          isDark ? 'bg-black/50 border-white/5' : 'bg-slate-900 text-slate-200 border-slate-700'
-        }`}>
+        <div className="p-3.5 sm:p-4 rounded-xl border font-mono text-xs bg-black/50 border-white/5">
           <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5 text-[11px] text-slate-400">
             <span className="flex items-center gap-1.5 font-bold text-white">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />

@@ -159,13 +159,11 @@ if (!user) {
   }
 ];
 
-export default function ArchitectureFlow({ theme = 'dark' }) {
+export default function ArchitectureFlow() {
   const [activeStep, setActiveStep] = useState(0);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationScenario, setSimulationScenario] = useState('hit'); // 'hit' | 'breach' | 'miss'
   const [simulationLog, setSimulationLog] = useState(null);
-
-  const isDark = theme === 'dark';
 
   const runSimulation = (scenario) => {
     setSimulationScenario(scenario);
@@ -208,23 +206,23 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
   };
 
   return (
-    <section id="architecture" className={`py-24 transition-colors duration-300 ${isDark ? 'bg-[#0a0a0f] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <section id="architecture" className="py-24 bg-[#0a0a0f] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-mono uppercase tracking-wider border mb-4 border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
             Request Traversal Pipeline
           </div>
-          <h2 className={`text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 text-white">
             Security Pipeline Architecture
           </h2>
-          <p className={`text-base sm:text-lg font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          <p className="text-base sm:text-lg font-mono text-slate-400">
             Every incoming request traverses seven discrete layers of distributed defense
           </p>
         </div>
 
         {/* Interactive Trace Simulator Bar */}
-        <div className={`p-4 rounded-2xl border mb-10 flex flex-wrap items-center justify-between gap-4 transition-colors ${isDark ? 'bg-[#12121c] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+        <div className="p-4 rounded-2xl border mb-10 flex flex-wrap items-center justify-between gap-4 bg-[#12121c] border-white/10">
           <div className="flex items-center gap-3">
             <span className="font-mono text-xs uppercase font-semibold tracking-wider text-emerald-500">
               Live Pipeline Trace:
@@ -236,9 +234,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
                   simulationScenario === 'hit' && !isSimulating
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : isDark
-                      ? 'bg-white/5 text-slate-300 hover:bg-white/10'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <HiPlay className="w-3.5 h-3.5" />
@@ -250,9 +246,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
                   simulationScenario === 'breach' && !isSimulating
                     ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : isDark
-                      ? 'bg-white/5 text-slate-300 hover:bg-white/10'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <HiPlay className="w-3.5 h-3.5" />
@@ -264,9 +258,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
                   simulationScenario === 'miss' && !isSimulating
                     ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                    : isDark
-                      ? 'bg-white/5 text-slate-300 hover:bg-white/10'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <HiArrowPath className="w-3.5 h-3.5" />
@@ -310,16 +302,10 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                     onClick={() => setActiveStep(idx)}
                     className={`relative flex flex-col items-center justify-center p-3.5 w-32 h-36 rounded-2xl border transition-all duration-300 text-center outline-none group shrink-0 ${
                       isActive
-                        ? isDark
-                          ? 'bg-[#151522] border-emerald-500 shadow-[0_0_25px_rgba(34,197,94,0.25)] ring-1 ring-emerald-500 scale-105 z-10'
-                          : 'bg-white border-emerald-500 shadow-[0_0_20px_rgba(34,197,94,0.2)] ring-1 ring-emerald-500 scale-105 z-10'
+                        ? 'bg-[#151522] border-emerald-500 shadow-[0_0_25px_rgba(34,197,94,0.25)] ring-1 ring-emerald-500 scale-105 z-10'
                         : isPast
-                          ? isDark
-                            ? 'bg-[#101018] border-emerald-500/30 text-slate-300'
-                            : 'bg-white border-emerald-500/30 text-slate-700'
-                          : isDark
-                            ? 'bg-[#111118] border-white/5 text-slate-400 hover:border-white/20'
-                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                          ? 'bg-[#101018] border-emerald-500/30 text-slate-300'
+                          : 'bg-[#111118] border-white/5 text-slate-400 hover:border-white/20'
                     }`}
                   >
                     <span className="font-mono text-[9px] uppercase tracking-wider mb-2 text-slate-500 font-semibold">
@@ -330,12 +316,12 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                         ? 'bg-emerald-500/20 text-emerald-400'
                         : isPast
                           ? 'bg-emerald-500/10 text-emerald-400'
-                          : isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'
+                          : 'bg-white/5 text-slate-400'
                     }`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <span className={`text-xs font-semibold tracking-tight leading-tight line-clamp-1 ${
-                      isActive ? (isDark ? 'text-white' : 'text-slate-900') : ''
+                      isActive ? 'text-white' : ''
                     }`}>
                       {step.title}
                     </span>
@@ -364,7 +350,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
         </div>
 
         {/* Active Step Deep Detail & Code Panel */}
-        <div className={`rounded-2xl border p-6 lg:p-8 transition-all duration-300 ${isDark ? 'bg-[#11111a] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-md'}`}>
+        <div className="rounded-2xl border p-6 lg:p-8 transition-all duration-300 bg-[#11111a] border-white/10 shadow-2xl">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left: Deep Specification */}
             <div className="lg:col-span-6 space-y-4">
@@ -374,7 +360,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    <h3 className="text-xl font-bold tracking-tight text-white">
                       {PIPELINE_STEPS[activeStep].title}
                     </h3>
                     <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
@@ -387,7 +373,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 </div>
               </div>
 
-              <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              <p className="text-sm leading-relaxed text-slate-300">
                 {PIPELINE_STEPS[activeStep].summary}
               </p>
 
@@ -398,7 +384,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 {PIPELINE_STEPS[activeStep].specs.map((spec, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <span className="text-emerald-500 mt-0.5">✔</span>
-                    <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>{spec}</span>
+                    <span className="text-slate-400">{spec}</span>
                   </div>
                 ))}
               </div>
@@ -420,7 +406,7 @@ export default function ArchitectureFlow({ theme = 'dark' }) {
                 <span className="font-mono text-xs text-slate-500">Implementation Contract</span>
                 <span className="font-mono text-[10px] text-emerald-400">Source: server/src</span>
               </div>
-              <pre className={`p-4 rounded-xl border font-mono text-xs leading-relaxed overflow-x-auto ${isDark ? 'bg-black/50 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
+              <pre className="p-4 rounded-xl border font-mono text-xs leading-relaxed overflow-x-auto bg-black/50 border-white/5 text-emerald-300">
                 <code>{PIPELINE_STEPS[activeStep].codeSnippet}</code>
               </pre>
             </div>

@@ -5,13 +5,15 @@ import { logger } from '../lib/logger.js';
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
-let tlsOptions = {};
+let tlsConfig = {};
 if (redisUrl.startsWith('rediss://')) {
     try {
         const parsedUrl = new URL(redisUrl);
         if (parsedUrl.hostname) {
-            tlsOptions = {
-                servername: parsedUrl.hostname
+            tlsConfig = {
+                tls: {
+                    servername: parsedUrl.hostname
+                }
             };
         }
     } catch (e) {
@@ -23,7 +25,7 @@ const redis = new Redis(redisUrl, {
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
     lazyConnect: false,
-    tls: tlsOptions,
+    ...tlsConfig,
     retryStrategy(times) {
         const delay = Math.min(times * 100, 3000);
         return delay;

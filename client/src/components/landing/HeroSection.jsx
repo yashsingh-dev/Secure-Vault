@@ -16,13 +16,11 @@ import {
 import { SiGithub } from 'react-icons/si';
 import { TbRoute } from 'react-icons/tb';
 
-export default function HeroSection({ theme = 'dark', onOpenDocs }) {
+export default function HeroSection({ onOpenDocs }) {
   const [activeTab, setActiveTab] = useState('access');
   const [tokenFormat, setTokenFormat] = useState('decoded'); // 'decoded' | 'raw'
   const [simulatedBreach, setSimulatedBreach] = useState(false);
   const [tokenVersionCounter, setTokenVersionCounter] = useState(2);
-
-  const isDark = theme === 'dark';
 
   const metrics = [
     { value: '100%', label: 'Stateless JWT Validation', desc: 'Instant zero-delay verification' },
@@ -37,73 +35,63 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
   const rawSignature = 'k8X9PqZ3mLwRtYuIaOpSdFgHjKlZxVbNmQ4z';
 
   return (
-    <section className={`min-h-screen pt-28 pb-16 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 transition-colors duration-300 relative overflow-hidden ${isDark ? 'bg-[#0a0a0f] text-white' : 'bg-white text-slate-900'}`}>
+    <section className="min-h-screen pt-28 pb-16 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#0a0a0f] text-white">
       {/* Background Subtle Radial Glow */}
       <div
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] pointer-events-none rounded-full blur-[120px] opacity-25"
         style={{
-          background: isDark
-            ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.35), transparent 70%)'
-            : 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.2), transparent 70%)'
+          background: 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.35), transparent 70%)'
         }}
       />
 
       {/* Top Badge */}
-      <div className="relative z-10 mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider border transition-colors duration-200">
+      <div className="relative z-10 mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-mono uppercase tracking-wider border transition-colors duration-200 border-emerald-500/30 bg-emerald-500/10">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        <span className={isDark ? 'text-emerald-400' : 'text-emerald-700'}>
+        <span className="text-emerald-400">
           RFC 6819 Compliant
         </span>
         <span className="opacity-40">·</span>
-        <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+        <span className="text-slate-400">
           Enterprise Distributed Session Security
         </span>
       </div>
 
       {/* Main Headline */}
       <h1 className="relative z-10 text-center text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 max-w-5xl">
-        <span className={isDark ? 'bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent' : 'text-[#0f172a]'}>
+        <span className="bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
           High-Performance Enterprise Session Security & Auth
         </span>
       </h1>
 
       {/* Subheadline & Quick-Scan Technical Highlights */}
       <div className="relative z-10 text-center max-w-3xl mb-10">
-        <p className={`text-base sm:text-lg mb-5 font-normal leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        <p className="text-base sm:text-lg mb-5 font-normal leading-relaxed text-slate-400">
           Distributed session security engineered for zero-trust architectures.
         </p>
 
         {/* 4 Instant-Scan Technical Highlight Badges */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all bg-[#12121c]/90 border-white/10 text-slate-300">
             <HiOutlineShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>RTR Token Rotation</span>
+            <span className="text-white font-semibold">RTR Token Rotation</span>
             <span className="text-[10px] opacity-60 font-sans">(RFC 6819)</span>
           </div>
 
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all bg-[#12121c]/90 border-white/10 text-slate-300">
             <HiOutlineBolt className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Atomic Lua</span>
+            <span className="text-white font-semibold">Atomic Lua</span>
             <span className="text-[10px] opacity-60 font-sans">Rate Limiter</span>
           </div>
 
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all bg-[#12121c]/90 border-white/10 text-slate-300">
             <HiOutlineClock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>10s Grace Period</span>
+            <span className="text-white font-semibold">10s Grace Period</span>
             <span className="text-[10px] opacity-60 font-sans">Race Safe</span>
           </div>
 
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-            isDark ? 'bg-[#12121c]/90 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all bg-[#12121c]/90 border-white/10 text-slate-300">
             <HiOutlineServerStack className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className={isDark ? 'text-white font-semibold' : 'text-slate-900 font-semibold'}>Zero-DB Hit</span>
+            <span className="text-white font-semibold">Zero-DB Hit</span>
             <span className="text-[10px] opacity-60 font-sans">RAM Auth</span>
           </div>
         </div>
@@ -124,10 +112,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
           href="https://github.com/yashsingh-dev/Secure-Vault"
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center justify-center gap-2.5 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 group ${isDark
-              ? 'border-white/10 hover:border-white/20 bg-[#12121a] text-slate-200 hover:text-white'
-              : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-800'
-            }`}
+          className="inline-flex items-center justify-center gap-2.5 px-5 py-3 font-medium text-sm rounded-xl border transition-all duration-200 hover:-translate-y-0.5 group border-white/10 hover:border-white/20 bg-[#12121a] text-slate-200 hover:text-white"
         >
           <SiGithub className="w-4 h-4 text-current group-hover:scale-110 transition-transform shrink-0" />
           <span>View Source on GitHub</span>
@@ -137,10 +122,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
         {onOpenDocs && (
           <button
             onClick={onOpenDocs}
-            className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-mono text-xs rounded-xl border transition-all duration-200 ${isDark
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-                : 'border-emerald-500/30 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-              }`}
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 font-mono text-xs rounded-xl border transition-all duration-200 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
           >
             <HiOutlineCodeBracket className="w-4 h-4" />
             Threat Model Spec
@@ -149,17 +131,17 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
       </div>
 
       {/* Telemetry Metrics Bar (Mandatory Section 7.3) */}
-      <div className={`relative z-10 w-full max-w-5xl mx-auto rounded-2xl border mb-12 overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#111118]/80 border-white/10 backdrop-blur-xl' : 'bg-slate-50/90 border-slate-200 shadow-sm'}`}>
-        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 lg:divide-x ${isDark ? 'divide-white/5' : 'divide-slate-200'}`}>
+      <div className="relative z-10 w-full max-w-5xl mx-auto rounded-2xl border mb-12 overflow-hidden bg-[#111118]/80 border-white/10 backdrop-blur-xl">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 lg:divide-x divide-white/5">
           {metrics.map((stat, idx) => (
             <div key={idx} className="p-5 text-center flex flex-col items-center justify-center group hover:bg-emerald-500/[0.02] transition-colors">
-              <div className={`font-mono text-2xl lg:text-3xl font-bold mb-1 tracking-tight ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              <div className="font-mono text-2xl lg:text-3xl font-bold mb-1 tracking-tight text-emerald-400">
                 {stat.value}
               </div>
-              <div className={`text-xs font-mono font-medium mb-1 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+              <div className="text-xs font-mono font-medium mb-1 text-slate-200">
                 {stat.label}
               </div>
-              <div className={`text-[10px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              <div className="text-[10px] leading-tight text-slate-400">
                 {stat.desc}
               </div>
             </div>
@@ -168,9 +150,9 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
       </div>
 
       {/* Interactive Token Inspector Widget (Mandatory Section 7.2) */}
-      <div className={`relative z-10 w-full max-w-3xl mx-auto rounded-2xl border overflow-hidden transition-all duration-300 ${isDark ? 'bg-[#14141f] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-lg'}`}>
+      <div className="relative z-10 w-full max-w-3xl mx-auto rounded-2xl border overflow-hidden transition-all duration-300 bg-[#14141f] border-white/10 shadow-2xl">
         {/* Widget Top Bar */}
-        <div className={`flex flex-wrap items-center justify-between border-b px-4 py-3 gap-3 ${isDark ? 'border-white/10 bg-[#101018]' : 'border-slate-200 bg-slate-50'}`}>
+        <div className="flex flex-wrap items-center justify-between border-b px-4 py-3 gap-3 border-white/10 bg-[#101018]">
           <div className="flex items-center gap-2">
             <HiOutlineShieldCheck className="w-5 h-5 text-emerald-500" />
             <span className="font-mono text-xs font-semibold tracking-wide uppercase">
@@ -189,12 +171,8 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${activeTab === tab.id
-                    ? isDark
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-500/30'
-                    : isDark
-                      ? 'text-slate-400 hover:text-white hover:bg-white/5'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
               >
                 {tab.label}
@@ -205,7 +183,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
         {/* Tab Sub-controls */}
         {activeTab === 'access' && (
-          <div className={`flex items-center justify-between px-5 py-2 border-b text-xs font-mono ${isDark ? 'border-white/5 bg-[#0e0e16] text-slate-400' : 'border-slate-100 bg-slate-50 text-slate-500'}`}>
+          <div className="flex items-center justify-between px-5 py-2 border-b text-xs font-mono border-white/5 bg-[#0e0e16] text-slate-400">
             <div className="flex items-center gap-2">
               <span>View Mode:</span>
               <button
@@ -230,12 +208,12 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
         {/* Tab 1: Access Token Content */}
         {activeTab === 'access' && (
-          <div className={`p-6 font-mono text-xs overflow-x-auto ${isDark ? 'bg-[#0f0f18] text-slate-300' : 'bg-white text-slate-800'}`}>
+          <div className="p-6 font-mono text-xs overflow-x-auto bg-[#0f0f18] text-slate-300">
             {tokenFormat === 'decoded' ? (
               <div className="space-y-4">
                 <div>
                   <div className="text-[11px] text-cyan-400 font-semibold mb-1">// 1. Header (Cryptographic Spec)</div>
-                  <pre className={`p-3 rounded-lg border ${isDark ? 'bg-black/30 border-white/5 text-cyan-300' : 'bg-slate-50 border-slate-200 text-cyan-800'}`}>
+                  <pre className="p-3 rounded-lg border bg-black/30 border-white/5 text-cyan-300">
                     {`{
   "alg": "HS256",
   "typ": "JWT"
@@ -245,7 +223,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
                 <div>
                   <div className="text-[11px] text-emerald-400 font-semibold mb-1">// 2. Payload (Bound to Device Family & Version Counter)</div>
-                  <pre className={`p-3 rounded-lg border ${isDark ? 'bg-black/30 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
+                  <pre className="p-3 rounded-lg border bg-black/30 border-white/5 text-emerald-300">
                     {`{
   "userId": "66f4a8b1c9d2e3f4a5b6c7d8",
   "familyId": "fam_9e83b4c1",         // Bound to client device session
@@ -258,7 +236,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
                 <div>
                   <div className="text-[11px] text-amber-400 font-semibold mb-1">// 3. HMAC-SHA256 Signature Proof</div>
-                  <div className={`p-3 rounded-lg border flex items-center justify-between ${isDark ? 'bg-black/30 border-white/5 text-amber-300' : 'bg-slate-50 border-slate-200 text-amber-800'}`}>
+                  <div className="p-3 rounded-lg border flex items-center justify-between bg-black/30 border-white/5 text-amber-300">
                     <span className="truncate">HMACSHA256(base64Url(header) + "." + base64Url(payload), JWT_ACCESS_KEY)</span>
                     <span className="text-emerald-400 text-[10px] ml-2 shrink-0 font-sans px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
                       Valid
@@ -271,7 +249,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
                 <p className="text-[11px] text-slate-400">
                   Click or hover any segment to see how Secure Vault parses RFC 7519 tokens:
                 </p>
-                <div className={`p-4 rounded-xl border leading-relaxed break-all ${isDark ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="p-4 rounded-xl border leading-relaxed break-all bg-black/40 border-white/5">
                   <span className="text-cyan-400 font-bold hover:underline cursor-pointer" title="Header: { alg: 'HS256', typ: 'JWT' }">
                     {rawHeader}
                   </span>
@@ -296,7 +274,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
         {/* Tab 2: Refresh Token Content */}
         {activeTab === 'refresh' && (
-          <div className={`p-6 font-mono text-xs overflow-x-auto space-y-4 ${isDark ? 'bg-[#0f0f18] text-slate-300' : 'bg-white text-slate-800'}`}>
+          <div className="p-6 font-mono text-xs overflow-x-auto space-y-4 bg-[#0f0f18] text-slate-300">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5">
               <div className="text-[11px] text-emerald-400 font-semibold">// HTTP Cookie Specification</div>
               <button
@@ -308,7 +286,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
               </button>
             </div>
 
-            <pre className={`p-4 rounded-xl border leading-relaxed ${isDark ? 'bg-black/30 border-white/5 text-emerald-300' : 'bg-slate-50 border-slate-200 text-emerald-800'}`}>
+            <pre className="p-4 rounded-xl border leading-relaxed bg-black/30 border-white/5 text-emerald-300">
               {`Set-Cookie: __Host-sv_rt=eyJhbGciOi...;
   Max-Age=604800;                 // 7-day cryptographically secure lifetime
   Path=/api/v1/auth;              // Scoped strictly to authentication route
@@ -319,7 +297,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
             {/* OCC Invalidation Banner triggered by button */}
             {tokenVersionCounter > 2 && (
-              <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              <div className="p-3 rounded-xl border flex items-center justify-between gap-3 text-xs bg-amber-500/10 border-amber-500/30 text-amber-300">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
                   <span>
@@ -334,7 +312,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
             <div>
               <div className="text-[11px] text-cyan-400 font-semibold mb-1">// Authoritative MongoDB Record with Rotation Metadata</div>
-              <pre className={`p-4 rounded-xl border leading-relaxed ${isDark ? 'bg-black/30 border-white/5 text-cyan-300' : 'bg-slate-50 border-slate-200 text-cyan-800'}`}>
+              <pre className="p-4 rounded-xl border leading-relaxed bg-black/30 border-white/5 text-cyan-300">
                 {`{
   "token": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // SHA256 hashed
   "userId": "66f4a8b1c9d2e3f4a5b6c7d8",
@@ -355,7 +333,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
 
         {/* Tab 3: Token Family Content with Live Simulation */}
         {activeTab === 'family' && (
-          <div className={`p-6 font-mono text-xs overflow-x-auto space-y-4 ${isDark ? 'bg-[#0f0f18] text-slate-300' : 'bg-white text-slate-800'}`}>
+          <div className="p-6 font-mono text-xs overflow-x-auto space-y-4 bg-[#0f0f18] text-slate-300">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5">
               <div className="text-[11px] text-slate-400">
                 RFC 6819 Token Family Breach Simulation Engine:
@@ -380,7 +358,7 @@ export default function HeroSection({ theme = 'dark', onOpenDocs }) {
               </div>
             </div>
 
-            <div className={`p-4 rounded-xl border space-y-3 ${isDark ? 'bg-black/30 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="p-4 rounded-xl border space-y-3 bg-black/30 border-white/5">
               <div className="flex items-center gap-2 text-emerald-400 font-semibold">
                 <HiOutlineShieldCheck className="w-4 h-4" />
                 User Entity: usr_7x9k2m (tokenVersion: {tokenVersionCounter})

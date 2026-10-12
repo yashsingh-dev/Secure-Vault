@@ -1,3 +1,4 @@
+import './src/config/instrument.js';
 import './src/config/validateSetup.js';
 import http from 'http';
 import app from './src/app.js';

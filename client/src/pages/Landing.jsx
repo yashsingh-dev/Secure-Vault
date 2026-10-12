@@ -10,62 +10,47 @@ import Footer from '../components/landing/Footer';
 import LiveDocsModal from '../components/landing/LiveDocsModal';
 
 export default function Landing() {
-  const [theme, setTheme] = useState(() => {
-    const stored = localStorage.getItem('sv-theme');
-    if (stored) return stored;
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  });
-
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-    localStorage.setItem('sv-theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
-  };
-
-  const isDark = theme === 'dark';
+    // Enforce dark mode permanently across application
+    document.documentElement.classList.remove('light');
+    localStorage.removeItem('sv-theme');
+  }, []);
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#0a0a0f]' : 'bg-white'} transition-colors duration-300 relative`}>
+    <div className="min-h-screen bg-[#0a0a0f] text-white relative">
       {/* Navigation Header */}
       <Navbar
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onOpenDocs={() => setIsDocsModalOpen(true)}
       />
 
       {/* Hero Section with Interactive Token Inspector */}
       <HeroSection
-        theme={theme}
         onOpenDocs={() => setIsDocsModalOpen(true)}
       />
 
       {/* 7-Layer Interactive Pipeline Flow */}
-      <ArchitectureFlow theme={theme} />
+      <ArchitectureFlow />
 
       {/* 25-Feature Security Matrix with Live Search */}
-      <FeatureMatrix theme={theme} />
+      <FeatureMatrix />
 
       {/* Rate Limiting Architecture Section */}
-      <section className={`py-24 px-4 sm:px-6 lg:px-8 ${isDark ? 'bg-[#08080d]' : 'bg-white'} border-t border-black/5 dark:border-white/5 transition-colors duration-300`}>
-        <RateLimitingDeepDive theme={theme} />
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-[#08080d] border-t border-white/5">
+        <RateLimitingDeepDive />
       </section>
 
       {/* Asynchronous Notification & Queue Pipeline */}
-      <section className={`py-24 px-4 sm:px-6 lg:px-8 ${isDark ? 'bg-[#0a0a0f]' : 'bg-slate-50'} border-t border-b border-black/5 dark:border-white/5 transition-colors duration-300`}>
-        <NotificationPipeline theme={theme} />
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-[#0a0a0f] border-t border-b border-white/5">
+        <NotificationPipeline />
       </section>
 
       {/* Future Scalability Roadmap */}
-      <FutureRoadmap theme={theme} />
+      <FutureRoadmap />
 
       {/* Engineering Footer */}
       <Footer
-        theme={theme}
         onOpenDocs={() => setIsDocsModalOpen(true)}
       />
 
@@ -73,7 +58,6 @@ export default function Landing() {
       <LiveDocsModal
         isOpen={isDocsModalOpen}
         onClose={() => setIsDocsModalOpen(false)}
-        theme={theme}
       />
     </div>
   );

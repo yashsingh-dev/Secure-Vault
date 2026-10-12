@@ -41,10 +41,6 @@ body {
   overflow-x: hidden;
 }
 
-  html.light body {
-    background: #f8fafc;
-    color: #0f172a;
-  }
 }
 
 @layer components {

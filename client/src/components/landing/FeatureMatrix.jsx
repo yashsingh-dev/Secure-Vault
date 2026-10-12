@@ -215,7 +215,7 @@ const SECTIONS = [
   }
 ];
 
-const formatTextWithCode = (text, isDark) => {
+const formatTextWithCode = (text) => {
   if (!text) return null;
   const parts = text.split(/(`[^`]+`)/g);
   return parts.map((part, index) => {
@@ -224,11 +224,7 @@ const formatTextWithCode = (text, isDark) => {
       return (
         <code
           key={index}
-          className={`font-mono text-[11px] px-1.5 py-0.5 rounded border ${
-            isDark
-              ? 'bg-white/5 border-white/10 text-emerald-400'
-              : 'bg-black/5 border-black/10 text-emerald-700'
-          }`}
+          className="font-mono text-[11px] px-1.5 py-0.5 rounded border bg-white/5 border-white/10 text-emerald-400"
         >
           {codeContent}
         </code>
@@ -238,12 +234,11 @@ const formatTextWithCode = (text, isDark) => {
   });
 };
 
-export default function FeatureMatrix({ theme = 'dark' }) {
+export default function FeatureMatrix() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFeature, setExpandedFeature] = useState(null);
 
-  const isDark = theme === 'dark';
   const ActiveSection = SECTIONS[activeIndex];
   const ActiveIcon = ActiveSection.icon;
 
@@ -262,7 +257,7 @@ export default function FeatureMatrix({ theme = 'dark' }) {
     : null;
 
   return (
-    <section id="features" className={`py-24 font-sans transition-colors duration-300 ${isDark ? 'bg-[#0a0a0f]' : 'bg-slate-50'}`}>
+    <section id="features" className="py-24 font-sans bg-[#0a0a0f]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
@@ -270,10 +265,10 @@ export default function FeatureMatrix({ theme = 'dark' }) {
             <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-mono uppercase tracking-wider border mb-4 border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
               Technical Specification Matrix
             </div>
-            <h2 className={`text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white">
               Complete Security Architecture
             </h2>
-            <p className={`mt-2 text-sm sm:text-base font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className="mt-2 text-sm sm:text-base font-mono text-slate-400">
               25 production-grade distributed specifications across 4 security domains
             </p>
           </div>
@@ -286,11 +281,7 @@ export default function FeatureMatrix({ theme = 'dark' }) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search 25 specs (e.g. Lua, CSRF, Grace)..."
-              className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-mono transition-all outline-none ${
-                isDark
-                  ? 'bg-[#12121c] border-white/10 text-white placeholder-slate-500 focus:border-emerald-500'
-                  : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-500 shadow-sm'
-              }`}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-mono transition-all outline-none bg-[#12121c] border-white/10 text-white placeholder-slate-500 focus:border-emerald-500"
             />
             {searchQuery && (
               <button
@@ -305,7 +296,7 @@ export default function FeatureMatrix({ theme = 'dark' }) {
 
         {/* Tab Controls (When not searching) */}
         {!filteredFeatures && (
-          <div className={`flex overflow-x-auto mb-10 border-b scrollbar-hide ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+          <div className="flex overflow-x-auto mb-10 border-b scrollbar-hide border-white/10">
             {SECTIONS.map((sec, idx) => {
               const isActive = activeIndex === idx;
               const Icon = sec.icon;
@@ -315,13 +306,13 @@ export default function FeatureMatrix({ theme = 'dark' }) {
                   onClick={() => setActiveIndex(idx)}
                   className={`flex items-center gap-2.5 px-5 py-4 text-xs font-mono font-medium whitespace-nowrap border-b-2 transition-all outline-none ${
                     isActive
-                      ? `${sec.borderColor} ${isDark ? 'text-white' : 'text-slate-900'}`
-                      : `border-transparent ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`
+                      ? `${sec.borderColor} text-white`
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? sec.textColor : 'opacity-60'}`} />
                   <span>{sec.shortTitle}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-black/5 dark:bg-white/5 text-slate-500'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-slate-500'}`}>
                     {sec.badge}
                   </span>
                 </button>
@@ -334,14 +325,14 @@ export default function FeatureMatrix({ theme = 'dark' }) {
         {!filteredFeatures && (
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-200/50'}`}>
+              <div className="p-2 rounded-xl bg-white/5">
                 <ActiveIcon className={`w-5 h-5 ${ActiveSection.textColor}`} />
               </div>
               <div>
-                <h3 className={`text-lg font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <h3 className="text-lg font-bold tracking-tight text-white">
                   {ActiveSection.title}
                 </h3>
-                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                <p className="text-xs text-slate-400">
                   {ActiveSection.desc}
                 </p>
               </div>
@@ -361,11 +352,7 @@ export default function FeatureMatrix({ theme = 'dark' }) {
               <div
                 key={feat.name}
                 onClick={() => setExpandedFeature(isExpanded ? null : feat.name)}
-                className={`group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
-                  isDark
-                    ? 'bg-[#12121a] border-white/5 hover:border-white/15 hover:bg-[#151522]'
-                    : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
-                }`}
+                className="group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden bg-[#12121a] border-white/5 hover:border-white/15 hover:bg-[#151522]"
               >
                 {/* Accent Indicator Bar */}
                 <div
@@ -375,26 +362,26 @@ export default function FeatureMatrix({ theme = 'dark' }) {
 
                 <div className="pl-2">
                   <div className="flex items-start justify-between gap-3 mb-1.5">
-                    <h4 className={`font-semibold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      {formatTextWithCode(feat.name, isDark)}
+                    <h4 className="font-semibold text-sm tracking-tight text-white">
+                      {formatTextWithCode(feat.name)}
                     </h4>
                     <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
                       {feat.tag}
                     </span>
                   </div>
 
-                  <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {formatTextWithCode(feat.desc, isDark)}
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    {formatTextWithCode(feat.desc)}
                   </p>
 
                   {/* Expandable Engineering Rationale */}
                   {feat.rationale && (
-                    <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5">
+                    <div className="mt-3 pt-3 border-t border-white/5">
                       <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-500 font-medium">
                         <HiCodeBracket className="w-3.5 h-3.5" />
                         <span>Engineering Rationale:</span>
                       </div>
-                      <p className={`mt-1 text-[11px] leading-relaxed italic ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <p className="mt-1 text-[11px] leading-relaxed italic text-slate-400">
                         {feat.rationale}
                       </p>
                     </div>
