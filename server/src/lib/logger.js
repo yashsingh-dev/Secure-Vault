@@ -42,7 +42,12 @@ export const logger = pino({
             timestamp: Date.now() / 1000,
           });
 
-          // 2. If it's an error or fatal log, capture it directly as a Sentry Issue
+          // 2. Stream into Sentry's dedicated Logs explorer tab
+          if (Sentry.logger && typeof Sentry.logger[sentryLevel] === 'function' && msg) {
+            Sentry.logger[sentryLevel](msg, Object.keys(data).length > 0 ? data : undefined);
+          }
+
+          // 3. If it's an error or fatal log, capture it directly as a Sentry Issue
           if (level >= 50) {
             const errObj = data.err || data.error;
             if (errObj instanceof Error) {

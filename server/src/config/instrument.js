@@ -14,7 +14,7 @@ if (dsn) {
     // tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
     tracesSampleRate: 1.0,
 
-    // Auto-instrument MongoDB, Express, HTTP, etc.
+    // Auto-instrument MongoDB, Express, HTTP, and Logs
     integrations: [
       Sentry.expressIntegration({
         // Only capture unhandled/500+ server errors, ignore expected 4xx client errors
@@ -24,6 +24,8 @@ if (dsn) {
         },
       }),
       Sentry.mongooseIntegration(),
+      // Ingest stdout / console logs directly into the Sentry Logs tab
+      Sentry.consoleLoggingIntegration(),
     ],
 
     // Ensure sensitive secrets and tokens are stripped before leaving your server

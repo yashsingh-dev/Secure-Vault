@@ -31,7 +31,7 @@ export const CONSTANTS = {
         ENABLED: process.env.NODE_ENV === 'production' ? true : false
     },
     RECAPTCHA: {
-        ENABLED: process.env.NODE_ENV === 'production' ? true : false
+        ENABLED: (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') ? true : false
     },
     QUEUE: {
         DRIVER: 'bullmq', // custom or bullmq

@@ -8,8 +8,8 @@
     "start:dev": "node --env-file=.env.development server.js",
     "start:prod:local": "node --env-file=.env.production server.js",
     "start": "node server.js",
-    "test": "node --env-file=.env.development ./node_modules/vitest/vitest.mjs run",
-    "test:watch": "node --env-file=.env.development ./node_modules/vitest/vitest.mjs"
+    "test": "NODE_ENV=test node --env-file=.env.development ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "NODE_ENV=test node --env-file=.env.development ./node_modules/vitest/vitest.mjs"
   },
   "keywords": [],
   "author": "Yash Singh",
