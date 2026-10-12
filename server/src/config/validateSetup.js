@@ -96,6 +96,12 @@ export const validateEnv = () => {
         process.exit(1);
     }
 
+    if (process.env.SENTRY_DSN && process.env.SENTRY_DSN.trim() !== '') {
+        logger.info('Sentry APM & error monitoring configured');
+    } else {
+        logger.info('SENTRY_DSN not provided; Sentry APM & error monitoring disabled');
+    }
+
     logger.info('Environment configuration validated successfully');
 };
 

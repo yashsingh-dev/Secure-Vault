@@ -1,5 +1,4 @@
 import express from 'express';
-import * as Sentry from '@sentry/node';
 import './config/validateSetup.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -46,10 +45,6 @@ app.get(['/api/csrf-token', '/api/v1/csrf-token'], (req, res) => {
 app.use(doubleCsrfProtection);
 
 app.use(routes);
-
-// Sentry error handler must be registered before any other custom error handlers
-Sentry.setupExpressErrorHandler(app);
-
 app.use(errorHandler);
 
 export default app;

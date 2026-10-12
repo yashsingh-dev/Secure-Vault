@@ -16,6 +16,13 @@ if (dsn) {
 
     // Auto-instrument MongoDB, Express, HTTP, etc.
     integrations: [
+      Sentry.expressIntegration({
+        // Only capture unhandled/500+ server errors, ignore expected 4xx client errors
+        shouldHandleError: (error) => {
+          const status = error.status || error.statusCode;
+          return !status || status >= 500;
+        },
+      }),
       Sentry.mongooseIntegration(),
     ],
 
