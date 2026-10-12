@@ -35,6 +35,11 @@ app.get('/api/health', (req, res) => {
     res.send('API is running...');
 });
 
+// Sentry error test route
+app.get("/api/debug-sentry", function mainHandler(req, res) {
+    throw new Error("My first Sentry error!");
+});
+
 // CSRF Token Generation Route
 app.get(['/api/csrf-token', '/api/v1/csrf-token'], (req, res) => {
     const csrfToken = generateCsrfToken(req, res);
