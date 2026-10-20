@@ -27,13 +27,16 @@ app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(httpLogger);
 
-// Global Rate Limiter: Protects all incoming requests against high-volume abuse/DDoS
-app.use(globalLimiter);
-
-// Health check or status route
-app.get('/api/health', (req, res) => {
-    res.send('API is running...');
+// Health check & Root Ping (Must be BEFORE rate limiting)
+app.get(['/', '/api/health'], (req, res) => {
+    return res.status(200).send('OK');
 });
+app.head(['/', '/api/health'], (req, res) => {
+    return res.status(200).end();
+});
+
+// Global Rate Limiter (Only for actual application routes)
+app.use(globalLimiter);
 
 // Sentry error test route
 app.get("/api/debug-sentry", function mainHandler(req, res) {
