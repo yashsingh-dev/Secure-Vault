@@ -147,4 +147,5 @@ vite.config.ts.timestamp-*
 .vite/
 k6_testing
 
-# Untracked project notes
+# Untracked project notes and guides
+production_guide
