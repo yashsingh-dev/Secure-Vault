@@ -1,9 +1,67 @@
+# Dependency directories
 node_modules
-npm-debug.log
-.env
-.env.*
-!.env.example
-tests/
-vitest.config.js
-scripts/
-TODO
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store
+
+# Environment and sensitive files
+.env*
+**/.env*
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.crt
+**/*.crt
+*.cer
+**/*.cer
+*.pfx
+**/*.pfx
+id_rsa*
+**/*id_rsa*
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Build, test, and config artifacts
+dist
+build
+coverage
+.nyc_output
+tests
+scripts
+vitest.config.*
+*.test.*
+*.spec.*
+
+# Documentation and notes
+README.md
+*.md
+docs/
+TODO*
+
+# IDE and OS files
+.DS_Store
+**/.DS_Store
+._*
+**/*._*
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# General logs
+*.log
+**/*.log
