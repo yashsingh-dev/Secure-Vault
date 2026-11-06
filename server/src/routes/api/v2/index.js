@@ -3,7 +3,7 @@ import demoRoutes from './demo.route.js';
 
 const router = express.Router();
 
-// Mount public demo routes at root of v2
-router.use('/demo', demoRoutes);
+// Mount demo routes directly so /api/v2/users and /api/v2/todos work
+router.use('/', demoRoutes);
 
 export default router;

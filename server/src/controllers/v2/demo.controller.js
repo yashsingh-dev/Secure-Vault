@@ -23,7 +23,7 @@ const getTodos = asyncHandler(async (req, res) => {
     const todos = await demoService.getTodos();
 
     // CDN Caching header
-    // res.set('Cache-Control', 'public, max-age=60, s-maxage=300');
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=300');
 
     return response(res, 200, 'Demo todos fetched successfully', todos);
 });

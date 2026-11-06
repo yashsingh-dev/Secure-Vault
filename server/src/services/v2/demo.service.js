@@ -1,45 +1,46 @@
-import ApiError from '../../utils/ApiError.js';
+import { demoUsers, demoTodos } from '../../data/demoData.js';
 
-const JSONPLACEHOLDER_BASE_URL = 'https://jsonplaceholder.typicode.com';
-
-const getUsers = async () => {
-    try {
-        const response = await fetch(`${JSONPLACEHOLDER_BASE_URL}/users`, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new ApiError(response.status, `Failed to fetch users from external source (${response.statusText})`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(502, `Error fetching demo users: ${error.message}`);
+/**
+ * Utility function to pick N unique random items from an array
+ * without mutating the source dataset.
+ *
+ * @param {Array} array - Source dataset
+ * @param {number} count - Number of random items to select
+ * @returns {Array} Selected random items
+ */
+const getRandomItems = (array, count = 7) => {
+    if (!Array.isArray(array) || array.length === 0) {
+        return [];
     }
+
+    const sampleSize = Math.min(count, array.length);
+    const pool = [...array];
+
+    // Partial Fisher-Yates shuffle
+    for (let i = 0; i < sampleSize; i++) {
+        const randomIndex = i + Math.floor(Math.random() * (pool.length - i));
+        [pool[i], pool[randomIndex]] = [pool[randomIndex], pool[i]];
+    }
+
+    return pool.slice(0, sampleSize);
 };
 
-const getTodos = async () => {
-    try {
-        const response = await fetch(`${JSONPLACEHOLDER_BASE_URL}/todos`, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
+/**
+ * Returns 7 random users from the local demo dataset
+ * @param {number} [count=7]
+ * @returns {Promise<Array>}
+ */
+const getUsers = async (count = 7) => {
+    return getRandomItems(demoUsers, count);
+};
 
-        if (!response.ok) {
-            throw new ApiError(response.status, `Failed to fetch todos from external source (${response.statusText})`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(502, `Error fetching demo todos: ${error.message}`);
-    }
+/**
+ * Returns 7 random todos from the local demo dataset
+ * @param {number} [count=7]
+ * @returns {Promise<Array>}
+ */
+const getTodos = async (count = 7) => {
+    return getRandomItems(demoTodos, count);
 };
 
 export default {
